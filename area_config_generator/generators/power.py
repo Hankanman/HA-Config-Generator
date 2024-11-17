@@ -1,128 +1,169 @@
-# area_config_generator/generators/power.py
-"""Power monitoring configuration generator."""
-
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypedDict, cast
 
 from ..utils.types import PowerComponent
 
 
-def generate_power_config(devices: List[str]) -> List[Dict[str, List[Dict[str, Any]]]]:
+class EntityIds(TypedDict, total=False):
+    """Type for confirmed entity IDs."""
+
+    pc_power: str
+    monitors_power: str
+    desk_power: str
+    tv_power: str
+    entertainment_power: str
+    appliance_power: str
+    bathroom_power: str
+    kitchen_power: str
+    extras_power: str
+
+
+class Features(TypedDict, total=False):
+    """Type for feature configuration."""
+
+    area_name: str
+    devices: List[str]
+    entity_ids: EntityIds
+
+
+def generate_power_config(features: Features) -> List[Dict[str, List[Dict[str, Any]]]]:
     """Generate power monitoring configuration."""
     components: List[Dict[str, List[Dict[str, Any]]]] = []
 
+    area_name = str(features.get("area_name", ""))
+    entity_ids = cast(EntityIds, features.get("entity_ids", {}))
+    devices = cast(List[str], features.get("devices", []))
+
     # Map device types to their power components
-    device_components: Dict[str, PowerComponent] = get_device_power_components(devices)
+    device_components: Dict[str, PowerComponent] = get_device_power_components(
+        area_name=area_name, devices=devices, entity_ids=entity_ids
+    )
 
-    # Generate total power sensor
-    total_power: Dict[str, List[Dict[str, Any]]] = generate_total_power_sensor(device_components)
-    components.append(total_power)
+    # Only generate power sensors if we have components
+    if device_components:
+        # Generate total power sensor
+        total_power: Dict[str, List[Dict[str, Any]]] = generate_total_power_sensor(device_components)
+        components.append(total_power)
 
-    # Generate daily energy sensor
-    daily_energy: Dict[str, List[Dict[str, Any]]] = generate_daily_energy_sensor(device_components)
-    components.append(daily_energy)
+        # Generate daily energy sensor
+        daily_energy: Dict[str, List[Dict[str, Any]]] = generate_daily_energy_sensor(device_components)
+        components.append(daily_energy)
 
     return components
 
 
-def get_device_power_components(devices: List[str]) -> Dict[str, PowerComponent]:
+def get_device_power_components(area_name: str, devices: List[str], entity_ids: EntityIds) -> Dict[str, PowerComponent]:
     """Map devices to their power monitoring components."""
     components: Dict[str, PowerComponent] = {}
 
     for device in devices:
         if device == "computer":
+            pc_power = entity_ids.get("pc_power", f"sensor.{area_name}_pc_power")
+            monitors_power = entity_ids.get("monitors_power", f"sensor.{area_name}_monitors_power")
+            desk_power = entity_ids.get("desk_power", f"sensor.{area_name}_desk_power")
+
             components.update(
                 {
                     "pc": {
-                        "power_entity": "sensor.pc_power",
-                        "energy_entity": "sensor.pc_daily_energy",
+                        "power_entity": pc_power,
+                        "energy_entity": pc_power.replace("_power", "_daily_energy"),
                         "description": "PC/Computer",
                     },
                     "monitors": {
-                        "power_entity": "sensor.monitors_power",
-                        "energy_entity": "sensor.monitors_daily_energy",
+                        "power_entity": monitors_power,
+                        "energy_entity": monitors_power.replace("_power", "_daily_energy"),
                         "description": "Monitors",
                     },
                     "desk": {
-                        "power_entity": "sensor.desk_power",
-                        "energy_entity": "sensor.desk_daily_energy",
+                        "power_entity": desk_power,
+                        "energy_entity": desk_power.replace("_power", "_daily_energy"),
                         "description": "Desk Equipment",
                     },
                 }
             )
 
         elif device == "tv":
+            tv_power = entity_ids.get("tv_power", f"sensor.{area_name}_tv_power")
+            entertainment_power = entity_ids.get("entertainment_power", f"sensor.{area_name}_entertainment_power")
+
             components.update(
                 {
                     "tv": {
-                        "power_entity": "sensor.tv_power",
-                        "energy_entity": "sensor.tv_daily_energy",
+                        "power_entity": tv_power,
+                        "energy_entity": tv_power.replace("_power", "_daily_energy"),
                         "description": "Television",
                     },
                     "entertainment": {
-                        "power_entity": "sensor.entertainment_power",
-                        "energy_entity": "sensor.entertainment_daily_energy",
+                        "power_entity": entertainment_power,
+                        "energy_entity": entertainment_power.replace("_power", "_daily_energy"),
                         "description": "Entertainment System",
                     },
                 }
             )
 
         elif device == "appliance":
+            appliance_power = entity_ids.get("appliance_power", f"sensor.{area_name}_appliance_power")
             components.update(
                 {
                     "appliance": {
-                        "power_entity": "sensor.appliance_power",
-                        "energy_entity": "sensor.appliance_daily_energy",
+                        "power_entity": appliance_power,
+                        "energy_entity": appliance_power.replace("_power", "_daily_energy"),
                         "description": "Major Appliance",
                     }
                 }
             )
 
         elif device == "bathroom":
+            bathroom_power = entity_ids.get("bathroom_power", f"sensor.{area_name}_bathroom_power")
             components.update(
                 {
                     "bathroom": {
-                        "power_entity": "sensor.bathroom_power",
-                        "energy_entity": "sensor.bathroom_daily_energy",
+                        "power_entity": bathroom_power,
+                        "energy_entity": bathroom_power.replace("_power", "_daily_energy"),
                         "description": "Bathroom Equipment",
                     }
                 }
             )
 
         elif device == "kitchen":
-            components.update(
-                {
-                    "kitchen_major": {
-                        "power_entity": "sensor.kitchen_major_power",
-                        "energy_entity": "sensor.kitchen_major_daily_energy",
-                        "description": "Major Kitchen Appliances",
-                    },
-                    "kitchen_small": {
-                        "power_entity": "sensor.kitchen_small_power",
-                        "energy_entity": "sensor.kitchen_small_daily_energy",
-                        "description": "Small Kitchen Appliances",
-                    },
-                }
-            )
+            kitchen_power = entity_ids.get("kitchen_power", f"sensor.{area_name}_kitchen_power")
+
+            if kitchen_power:
+                components.update(
+                    {
+                        "kitchen_major": {
+                            "power_entity": f"{kitchen_power}_major",
+                            "energy_entity": f"{kitchen_power}_major_daily_energy",
+                            "description": "Major Kitchen Appliances",
+                        },
+                        "kitchen_small": {
+                            "power_entity": f"{kitchen_power}_small",
+                            "energy_entity": f"{kitchen_power}_small_daily_energy",
+                            "description": "Small Kitchen Appliances",
+                        },
+                    }
+                )
 
     # Add extras/misc power for any area with powered devices
     if components:
+        extras_power = entity_ids.get("extras_power", f"sensor.{area_name}_extras_power")
         components["extras"] = {
-            "power_entity": "sensor.extras_power",
-            "energy_entity": "sensor.extras_daily_energy",
+            "power_entity": extras_power,
+            "energy_entity": extras_power.replace("_power", "_daily_energy"),
             "description": "Other Devices",
         }
 
     return components
 
 
-def generate_total_power_sensor(components: dict[str, PowerComponent]) -> Dict[str, List[Dict[str, Any]]]:
+def generate_total_power_sensor(components: Dict[str, PowerComponent]) -> Dict[str, List[Dict[str, Any]]]:
     """Generate the total power sensor configuration."""
     # Build the power calculation template
     power_template: List[str] = ["{% set components = ["]
 
     # Add each component's power entity
     power_entities: List[str] = [f"'{comp['power_entity']}'" for comp in components.values()]
-    power_template.append("    " + ",\n    ".join(power_entities))
+    if power_entities:
+        power_template.append("    " + ",\n    ".join(power_entities))
 
     power_template.extend(
         [
@@ -156,14 +197,15 @@ def generate_total_power_sensor(components: dict[str, PowerComponent]) -> Dict[s
     }
 
 
-def generate_daily_energy_sensor(components: dict[str, PowerComponent]) -> Dict[str, List[Dict[str, Any]]]:
+def generate_daily_energy_sensor(components: Dict[str, PowerComponent]) -> Dict[str, List[Dict[str, Any]]]:
     """Generate the daily energy sensor configuration."""
     # Build the energy calculation template
     energy_template: List[str] = ["{% set components = ["]
 
     # Add each component's energy entity
     energy_entities: List[str] = [f"'{comp['energy_entity']}'" for comp in components.values()]
-    energy_template.append("    " + ",\n    ".join(energy_entities))
+    if energy_entities:
+        energy_template.append("    " + ",\n    ".join(energy_entities))
 
     energy_template.extend(
         [
@@ -186,7 +228,7 @@ def generate_daily_energy_sensor(components: dict[str, PowerComponent]) -> Dict[
                 "device_class": "energy",
                 "state_class": "total_increasing",
                 "unit_of_measurement": "kWh",
-                "attributes": {"last_reset": "{{ now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() }}"},
+                "attributes": {"last_reset": ("{{ now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() }}")},
             }
         ]
     }

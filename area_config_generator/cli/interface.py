@@ -1,13 +1,11 @@
 from collections.abc import Iterable
-from typing import Any, Dict, List, Literal, Optional, TypedDict, TypeGuard, TypeVar, Union, cast, overload
+from typing import Any, Dict, List, Literal, TypedDict, TypeGuard, Union, cast
 
 import click
 
 from ..generators import climate, occupancy, power
 from ..utils.types import (
     AreaConfigType,
-    FeatureType,
-    FeatureValue,
     InputBooleanConfig,
     InputNumberConfig,
     TemplateConfigItem,
@@ -17,60 +15,147 @@ from ..utils.yaml_writer import write_yaml_config
 
 # Type definitions
 DeviceOptionsType = Dict[str, str]
-T = TypeVar("T", bound=Dict[str, Any])
-
-# Template-specific types
-TemplateKeyType = Literal["binary_sensor", "sensor", "fan", "state_template"]
+EntityType = Literal["climate", "binary_sensor", "sensor", "input_boolean", "input_number", "switch", "fan"]
 
 
-class BaseTemplateItem(TypedDict, total=False):
-    """Base type for template items."""
+class Features(TypedDict, total=False):
+    """Type for feature configuration."""
 
-    name: str
-    unique_id: str
-    state: str
-    attributes: Dict[str, Any]
-
-
-class SensorTemplateItem(BaseTemplateItem):
-    """Sensor template item type."""
-
-    device_class: Optional[str]
-    state_class: Optional[str]
-    unit_of_measurement: Optional[str]
+    area_name: str
+    motion_sensor: bool
+    door_sensor: bool
+    window_sensor: bool
+    temperature_sensor: bool
+    humidity_sensor: bool
+    power_monitoring: bool
+    climate_control: bool
+    devices: List[str]
+    entity_ids: Dict[str, str]
 
 
-class BinarySensorTemplateItem(BaseTemplateItem):
-    """Binary sensor template item type."""
+class EntityConfig(TypedDict):
+    """Configuration for an entity."""
 
-    device_class: Optional[str]
-
-
-class FanTemplateItem(BaseTemplateItem):
-    """Fan template item type."""
-
-    platform: str
-    fans: Dict[str, Dict[str, Any]]
+    domain: EntityType
+    suggested_id: str
+    description: str
 
 
-class StateTemplateItem(BaseTemplateItem):
-    """State template item type."""
+def confirm_entity_id(domain: EntityType, suggested_id: str, description: str) -> str:
+    """Confirm entity ID with user."""
+    default_id = f"{domain}.{suggested_id}"
 
-    sensor: List[Dict[str, Any]]
+    # First try with just a prompt that allows empty (default) value
+    entity_id = click.prompt(
+        f"Please confirm the {description} entity ID", default=default_id, show_default=True, type=str
+    ).strip()
+
+    # If they just hit enter or entered the default exactly, return it
+    if not entity_id or entity_id == default_id:
+        return default_id
+
+    # Otherwise validate their custom entry
+    while True:
+        # Strip any quotes they may have added
+        entity_id = entity_id.strip('"').strip("'")
+
+        # Validate format
+        if "." not in entity_id:
+            click.echo(f"Invalid format. Must be in format: {domain}.entity_id")
+            entity_id = click.prompt("Please try again", default=default_id, type=str)
+            continue
+
+        prefix, id_part = entity_id.split(".", 1)
+        if prefix != domain:
+            click.echo(f"Invalid domain. Must start with: {domain}")
+            entity_id = click.prompt("Please try again", default=default_id, type=str)
+            continue
+
+        return entity_id
 
 
-TemplateItemValueType = Union[
-    List[SensorTemplateItem], List[BinarySensorTemplateItem], List[FanTemplateItem], List[StateTemplateItem]
-]
+def get_entity_config(area_name: str, features: Features) -> Dict[str, str]:
+    """Get and confirm all entity IDs for the area."""
+    entities: Dict[str, EntityConfig] = {}
 
+    # Basic entities
+    if features.get("climate_control"):
+        entities["climate"] = {"domain": "climate", "suggested_id": area_name, "description": "climate control"}
 
-class TemplateItemDict(TypedDict, total=False):
-    """Type definition for template items."""
+    if features.get("motion_sensor"):
+        entities["motion"] = {
+            "domain": "binary_sensor",
+            "suggested_id": f"{area_name}_motion",
+            "description": "motion sensor",
+        }
 
-    binary_sensor: List[BinarySensorTemplateItem]
-    sensor: List[SensorTemplateItem]
-    fan: List[FanTemplateItem]
-    state_template: List[StateTemplateItem]
+    if features.get("door_sensor"):
+        entities["door"] = {
+            "domain": "binary_sensor",
+            "suggested_id": f"{area_name}_door_contact",
+            "description": "door contact sensor",
+        }
+
+    if features.get("temperature_sensor"):
+        entities["temperature"] = {
+            "domain": "sensor",
+            "suggested_id": f"{area_name}_temperature",
+            "description": "temperature sensor",
+        }
+
+    # Device-specific entities
+    devices = features.get("devices", [])
+    if isinstance(devices, list):
+        for device in devices:
+            if device == "computer":
+                entities["pc_power"] = {
+                    "domain": "sensor",
+                    "suggested_id": f"{area_name}_pc_power",
+                    "description": "PC power sensor",
+                }
+                entities["pc_active"] = {
+                    "domain": "binary_sensor",
+                    "suggested_id": f"{area_name}_pc_active",
+                    "description": "PC state sensor",
+                }
+            elif device == "tv":
+                entities["tv_power"] = {
+                    "domain": "sensor",
+                    "suggested_id": f"{area_name}_tv_power",
+                    "description": "TV power sensor",
+                }
+                entities["tv_active"] = {
+                    "domain": "binary_sensor",
+                    "suggested_id": f"{area_name}_tv_active",
+                    "description": "TV state sensor",
+                }
+            elif device in ["appliance", "bathroom", "kitchen"]:
+                entities[f"{device}_power"] = {
+                    "domain": "sensor",
+                    "suggested_id": f"{area_name}_{device}_power",
+                    "description": f"{device.title()} power sensor",
+                }
+                entities[f"{device}_active"] = {
+                    "domain": "binary_sensor",
+                    "suggested_id": f"{area_name}_{device}_active",
+                    "description": f"{device.title()} state sensor",
+                }
+
+    # Add input_boolean entities
+    entities["occupied_override"] = {
+        "domain": "input_boolean",
+        "suggested_id": f"{area_name}_occupied_override",
+        "description": "occupancy override switch",
+    }
+
+    # Get confirmation for each entity
+    confirmed_entities: Dict[str, str] = {}
+
+    click.echo("\nPlease confirm the entity IDs for your configuration:")
+    for key, config in entities.items():
+        confirmed_entities[key] = confirm_entity_id(config["domain"], config["suggested_id"], config["description"])
+
+    return confirmed_entities
 
 
 def is_dict(value: Any) -> TypeGuard[Dict[str, Any]]:
@@ -83,21 +168,9 @@ def is_list(value: Any) -> TypeGuard[List[Any]]:
     return isinstance(value, list)
 
 
-def is_template_key(key: Any) -> TypeGuard[TemplateKeyType]:
-    """Check if a value is a valid template key."""
-    return isinstance(key, str) and key in {"binary_sensor", "sensor", "fan", "state_template"}
-
-
-def validate_template_key(item: Dict[str, Any], key: TemplateKeyType) -> bool:
-    """Validate that a template item has the correct structure for a key."""
-    if not is_dict(item) or key not in item:
-        return False
-
-    value = item[key]
-    if not is_list(value):
-        return False
-
-    return all(is_dict(subitem) for subitem in value)
+def extract_template_list(items: Iterable[Any]) -> List[TemplateConfigItem]:
+    """Extract valid template items from an iterable."""
+    return [item for item in items if is_valid_template_item(item)]
 
 
 def is_valid_template_item(item: Any) -> TypeGuard[TemplateConfigItem]:
@@ -105,40 +178,22 @@ def is_valid_template_item(item: Any) -> TypeGuard[TemplateConfigItem]:
     if not is_dict(item):
         return False
 
-    # Check that at least one valid key exists with correct structure
-    return any(is_template_key(key) and validate_template_key(item, key) for key in item.keys())
+    valid_keys = {"binary_sensor", "sensor", "fan", "state_template"}
+    for key in item:
+        if key not in valid_keys:
+            continue
+        if not is_list(item[key]):
+            return False
+        if not all(is_dict(subitem) for subitem in item[key]):
+            return False
 
-
-@overload
-def safe_get_template(config: Dict[str, Any], key: str = "template") -> List[TemplateItemDict]: ...
-
-
-@overload
-def safe_get_template(config: List[Any], key: str = "template") -> List[TemplateItemDict]: ...
-
-
-def safe_get_template(config: Union[Dict[str, Any], List[Any]], key: str = "template") -> List[TemplateItemDict]:
-    """Safely get template list from config dictionary or list."""
-    if is_dict(config):
-        template = config.get(key, [])
-    else:
-        template = config
-
-    if not is_list(template):
-        return []
-
-    return [cast(TemplateItemDict, item) for item in template if is_dict(item)]
-
-
-def extract_template_list(items: Iterable[Any]) -> List[TemplateConfigItem]:
-    """Extract valid template items from an iterable."""
-    return [item for item in items if is_valid_template_item(item)]
+    return True
 
 
 def extract_template(config: Union[Dict[str, Any], List[Any]]) -> List[TemplateConfigItem]:
     """Extract template configuration from config."""
     if is_dict(config):
-        return extract_template_list(safe_get_template(config))
+        return extract_template_list(config.get("template", []))
     if is_list(config):
         return extract_template_list(config)
     return []
@@ -150,8 +205,11 @@ def main(area_name: str) -> None:
     """Generate a Home Assistant area configuration."""
     click.echo(f"Generating configuration for {area_name}")
 
-    features: FeatureType = get_area_features()
+    features: Features = get_area_features(area_name)
     features["area_name"] = area_name
+
+    # Get entity confirmations
+    features["entity_ids"] = get_entity_config(area_name, features)
 
     config: AreaConfigType = generate_area_config(area_name, features)
     write_yaml_config(area_name, convert_area_config_to_config(config))
@@ -159,14 +217,15 @@ def main(area_name: str) -> None:
     click.echo(f"Configuration generated for {area_name}")
 
 
-def get_area_features() -> FeatureType:
+def get_area_features(area_name: str) -> Features:
     """Interactive CLI to determine area features."""
-    features: Dict[str, FeatureValue] = {}
+    features: Features = {"area_name": area_name, "devices": []}
 
     features["motion_sensor"] = click.confirm("Does this area have motion sensors?", default=True)
     features["door_sensor"] = click.confirm("Does this area have door sensors?", default=True)
     features["window_sensor"] = click.confirm("Does this area have window sensors?", default=False)
     features["temperature_sensor"] = click.confirm("Does this area have temperature sensors?", default=True)
+    features["humidity_sensor"] = click.confirm("Does this area have humidity sensors?", default=False)
 
     if click.confirm("Does this area have powered devices?", default=True):
         features["power_monitoring"] = True
@@ -201,34 +260,26 @@ def get_device_types() -> List[str]:
     return devices
 
 
-def generate_area_config(area_name: str, features: FeatureType) -> AreaConfigType:
+def generate_area_config(area_name: str, features: Features) -> AreaConfigType:
     """Generate the complete area configuration."""
     config: AreaConfigType = {area_name: {"template": [], "input_number": {}, "input_boolean": {}}}
 
-    def filter_features(features_dict: FeatureType) -> Dict[str, Union[bool, str, List[str]]]:
-        return {k: v for k, v in features_dict.items() if k != "area_name"}
-
-    def extract_devices(features_dict: FeatureType) -> List[str]:
-        devices = features_dict.get("devices")
-        if not is_list(devices):
-            return []
-        return devices
-
+    # Generate occupancy config if needed
     if features.get("motion_sensor") or features.get("door_sensor"):
-        occupancy_features = filter_features(features)
-        occupancy_config = occupancy.generate_occupancy_config(occupancy_features)
+        occupancy_config = occupancy.generate_occupancy_config(features)
         config[area_name]["template"].extend(extract_template(occupancy_config))
 
+    # Generate power monitoring config if needed
     if features.get("power_monitoring"):
-        devices = extract_devices(features)
-        power_config = power.generate_power_config(devices)
+        power_config = power.generate_power_config(features)
         config[area_name]["template"].extend(extract_template(power_config))
 
+    # Generate climate control config if needed
     if features.get("climate_control"):
-        climate_features = {k: v for k, v in filter_features(features).items() if isinstance(v, (bool, str))}
-        climate_config = climate.generate_climate_config(climate_features)
+        climate_config = climate.generate_climate_config(features)
         config[area_name]["template"].extend(extract_template(climate_config))
 
+    # Generate input controls
     input_controls = generate_input_controls(features)
 
     if "input_number" in input_controls:
@@ -244,7 +295,7 @@ def generate_area_config(area_name: str, features: FeatureType) -> AreaConfigTyp
     return config
 
 
-def generate_input_controls(features: FeatureType) -> Dict[str, Dict[str, Union[InputNumberConfig, InputBooleanConfig]]]:
+def generate_input_controls(features: Features) -> Dict[str, Dict[str, Union[InputNumberConfig, InputBooleanConfig]]]:
     """Generate input_number and input_boolean configurations."""
     controls: Dict[str, Dict[str, Union[InputNumberConfig, InputBooleanConfig]]] = {
         "input_number": {},
@@ -281,22 +332,25 @@ def generate_input_controls(features: FeatureType) -> Dict[str, Dict[str, Union[
             },
         )
 
-    controls["input_boolean"] = {
-        f"{area_name}_occupied_override": cast(
-            InputBooleanConfig,
-            {
-                "name": f"{area_name.title()} Manual Occupancy Override",
-                "icon": "mdi:account-check",
-            },
-        ),
-        f"{area_name}_sleep_mode": cast(
-            InputBooleanConfig,
-            {
-                "name": f"{area_name.title()} Sleep Mode",
-                "icon": "mdi:power-sleep",
-            },
-        ),
-    }
+    # Add boolean controls using confirmed entity IDs if available
+    entity_ids = features.get("entity_ids", {})
+    override_id = entity_ids.get("occupied_override", f"{area_name}_occupied_override")
+
+    controls["input_boolean"][override_id] = cast(
+        InputBooleanConfig,
+        {
+            "name": f"{area_name.title()} Manual Occupancy Override",
+            "icon": "mdi:account-check",
+        },
+    )
+
+    controls["input_boolean"][f"{area_name}_sleep_mode"] = cast(
+        InputBooleanConfig,
+        {
+            "name": f"{area_name.title()} Sleep Mode",
+            "icon": "mdi:power-sleep",
+        },
+    )
 
     return controls
 

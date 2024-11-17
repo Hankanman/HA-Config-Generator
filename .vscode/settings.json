@@ -31,5 +31,10 @@
   },
   "python.analysis.typeCheckingMode": "strict",
   "python.linting.mypyArgs": ["--strict", "--ignore-missing-imports"],
-  "python.linting.flake8Args": ["--max-line-length=125"]
+  "python.linting.flake8Args": [
+    "--max-line-length=125"
+  ],
+  "files.associations": {
+    "*.yaml": "home-assistant"
+  }
 }
