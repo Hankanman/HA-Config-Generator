@@ -1,45 +1,48 @@
-# area_config_generator/generators/template.py
 """Template generation utilities for Home Assistant configurations."""
 
-from typing import Dict, List, Union, Any
+from typing import Any, Dict, List, Optional, Union
 
 
 class TemplateGenerator:
     """Utility class for generating Home Assistant templates."""
 
     @staticmethod
-    def state_template(entity_id: str, transform: str = None) -> str:
-        """Generate a template to get an entity's state with optional transform."""
-        template = f"states('{entity_id}')"
+    def state_template(entity_id: str, transform: Optional[str] = None) -> str:
+        """Generate a template to get an entity's state."""
+        tmpl = f"states('{entity_id}')"
         if transform:
-            template += f"|{transform}"
-        return "{{{{ {} }}}}".format(template)
+            tmpl += f"|{transform}"
+        return f"{{{{ {tmpl} }}}}"
 
     @staticmethod
     def attribute_template(
-        entity_id: str, attribute: str, transform: str = None
+        entity_id: str, attribute: str, transform: Optional[str] = None
     ) -> str:
-        """Generate a template to get an entity's attribute with optional transform."""
-        template = f"state_attr('{entity_id}', '{attribute}')"
+        """Generate a template to get an entity's attribute."""
+        tmpl = f"state_attr('{entity_id}', '{attribute}')"
         if transform:
-            template += f"|{transform}"
-        return "{{{{ {} }}}}".format(template)
+            tmpl += f"|{transform}"
+        return f"{{{{ {tmpl} }}}}"
 
     @staticmethod
     def condition_template(conditions: List[Dict[str, Any]]) -> str:
         """Generate a template for condition checking."""
-        template_lines = []
+        template_lines: List[str] = []
 
         for condition in conditions:
             if condition.get("type") == "state":
-                template_lines.append(
-                    f"{{% if is_state('{condition['entity']}', '{condition['state']}') %}}"
+                line = (
+                    f"{{% if is_state('{condition['entity']}', "
+                    f"'{condition['state']}') %}}"
                 )
+                template_lines.append(line)
             elif condition.get("type") == "numeric_state":
                 operator = condition.get("operator", ">")
-                template_lines.append(
-                    f"{{% if states('{condition['entity']}')|float(0) {operator} {condition['value']} %}}"
+                line = (
+                    f"{{% if states('{condition['entity']}')"
+                    f"|float(0) {operator} {condition['value']} %}}"
                 )
+                template_lines.append(line)
             elif condition.get("type") == "template":
                 template_lines.append(f"{{% if {condition['value']} %}}")
 
@@ -47,43 +50,41 @@ class TemplateGenerator:
 
     @staticmethod
     def value_comparison(
-        value1: str, operator: str, value2: str, default: str = None
+        value1: str, operator: str, value2: str, default: Optional[str] = None
     ) -> str:
         """Generate a template for comparing values."""
         if default:
-            value1 += f"|default({default})"
-            value2 += f"|default({default})"
-        return "{{{{ {} {} {} }}}}".format(value1, operator, value2)
+            value1 = f"{value1}|default({default})"
+            value2 = f"{value2}|default({default})"
+        return f"{{{{ {value1} {operator} {value2} }}}}"
 
     @staticmethod
-    def calculation_template(calculation: str, round_digits: int = None) -> str:
+    def calculation_template(
+        calculation: str, round_digits: Optional[int] = None
+    ) -> str:
         """Generate a template for calculations."""
-        template = "{{{{ {} }}}}".format(calculation)
         if round_digits is not None:
-            template = "{{{{ {} | round({}) }}}}".format(calculation, round_digits)
-        return template
+            return f"{{{{ {calculation} | round({round_digits}) }}}}"
+        return f"{{{{ {calculation} }}}}"
 
     @staticmethod
     def generate_complex_template(template_parts: List[Dict[str, Any]]) -> str:
         """Generate a complex template from multiple parts."""
-        template_lines = []
+        template_lines: List[str] = []
 
         for part in template_parts:
             if part.get("type") == "set":
-                template_lines.append(
-                    "{{% set {} = {} %}}".format(part["variable"], part["value"])
-                )
+                line = "{{% set {} = {} %}}".format(part["variable"], part["value"])
+                template_lines.append(line)
             elif part.get("type") == "if":
-                template_lines.append("{{% if {} %}}".format(part["condition"]))
+                template_lines.append(f"{{% if {part['condition']} %}}")
                 template_lines.append("  " + part["then"])
                 if "else" in part:
                     template_lines.append("{% else %}")
                     template_lines.append("  " + part["else"])
                 template_lines.append("{% endif %}")
             elif part.get("type") == "for":
-                template_lines.append(
-                    "{{% for {} in {} %}}".format(part["var"], part["list"])
-                )
+                template_lines.append(f"{{% for {part['var']} in {part['list']} %}}")
                 template_lines.append("  " + part["do"])
                 template_lines.append("{% endfor %}")
             elif part.get("type") == "raw":
@@ -96,9 +97,11 @@ class AttributeGenerator:
     """Utility class for generating entity attributes."""
 
     @staticmethod
-    def generate_attributes(attributes: Dict[str, Union[str, Dict]]) -> Dict[str, str]:
+    def generate_attributes(
+        attributes: Dict[str, Union[str, Dict[str, Any]]]
+    ) -> Dict[str, str]:
         """Generate attribute templates from configuration."""
-        generated = {}
+        generated: Dict[str, str] = {}
 
         for key, value in attributes.items():
             if isinstance(value, str):
@@ -121,7 +124,7 @@ class AttributeGenerator:
 class DeviceClassHelper:
     """Helper class for managing device classes and units."""
 
-    DEVICE_CLASSES = {
+    DEVICE_CLASSES: Dict[str, Dict[str, str]] = {
         "temperature": {
             "device_class": "temperature",
             "state_class": "measurement",
@@ -165,7 +168,9 @@ class DeviceClassHelper:
         return cls.DEVICE_CLASSES.get(device_class, {})
 
     @classmethod
-    def apply_device_class(cls, config: Dict, device_class: str) -> Dict:
+    def apply_device_class(
+        cls, config: Dict[str, Any], device_class: str
+    ) -> Dict[str, Any]:
         """Apply device class configuration to an entity config."""
         class_config = cls.get_class_config(device_class)
         config.update(class_config)

@@ -1,11 +1,20 @@
-# area_config_generator/generators/climate.py
-from typing import Dict, List
+from typing import Dict, List, Mapping, Optional, TypedDict, Union
 
 
-def generate_climate_config(features: Dict[str, bool]) -> List[Dict]:
+class SensorDict(TypedDict, total=False):
+    name: Optional[str]
+    unique_id: Optional[str]
+    state: Optional[str]
+    device_class: Optional[str]
+    state_class: Optional[str]
+    unit_of_measurement: Optional[str]
+    attributes: Optional[Dict[str, str]]
+
+
+def generate_climate_config(features: Mapping[str, Union[str, bool]]) -> List[Dict[str, List[SensorDict]]]:
     """Generate climate control configuration."""
-    area_name = features["area_name"]
-    components = []
+    area_name = str(features.get("area_name", ""))
+    components: List[Dict[str, List[SensorDict]]] = []
 
     # Generate temperature differential sensor
     components.extend(generate_temperature_sensors(area_name))
@@ -21,7 +30,7 @@ def generate_climate_config(features: Dict[str, bool]) -> List[Dict]:
     return components
 
 
-def generate_temperature_sensors(area_name: str) -> List[Dict]:
+def generate_temperature_sensors(area_name: str) -> List[Dict[str, List[SensorDict]]]:
     """Generate temperature monitoring sensors."""
     return [
         {
@@ -58,7 +67,7 @@ def generate_temperature_sensors(area_name: str) -> List[Dict]:
     ]
 
 
-def generate_humidity_sensors(area_name: str) -> List[Dict]:
+def generate_humidity_sensors(area_name: str) -> List[Dict[str, List[SensorDict]]]:
     """Generate humidity monitoring sensors."""
     return [
         {
@@ -88,7 +97,7 @@ def generate_humidity_sensors(area_name: str) -> List[Dict]:
     ]
 
 
-def generate_window_monitoring(area_name: str) -> List[Dict]:
+def generate_window_monitoring(area_name: str) -> List[Dict[str, List[SensorDict]]]:
     """Generate window state monitoring configuration."""
     return [
         {
@@ -98,11 +107,7 @@ def generate_window_monitoring(area_name: str) -> List[Dict]:
                     "unique_id": f"{area_name}_windows_open",
                     "device_class": "window",
                     "state": f"{{{{ is_state('binary_sensor.{area_name}_window_contact', 'on') }}}}",
-                    "attributes": {
-                        "climate_impact": generate_window_climate_impact_template(
-                            area_name
-                        )
-                    },
+                    "attributes": {"climate_impact": generate_window_climate_impact_template(area_name)},
                 }
             ]
         }
@@ -113,12 +118,8 @@ def generate_temp_differential_template(area_name: str) -> str:
     """Generate template for temperature differential calculation."""
     return "\n".join(
         [
-            "{% set current = states('sensor.{}_temperature')|float(20) %}".format(
-                area_name
-            ),
-            "{% set target = state_attr('climate.{}', 'temperature')|float(20) %}".format(
-                area_name
-            ),
+            f"{{% set current = states('sensor.{area_name}_temperature')|float(20) %}}",
+            f"{{% set target = state_attr('climate.{area_name}', 'temperature')|float(20) %}}",
             "{{ (current - target)|round(1) }}",
         ]
     )
@@ -129,14 +130,10 @@ def generate_temp_trend_template(area_name: str, rising: bool = True) -> str:
     operator = ">" if rising else "<"
     return "\n".join(
         [
-            "{% set current = states('sensor.{}_temperature')|float(20) %}".format(
-                area_name
-            ),
-            "{% set previous = state_attr('sensor.{}_temperature', 'previous_value')|float(20) %}".format(
-                area_name
-            ),
+            f"{{% set current = states('sensor.{area_name}_temperature')|float(20) %}}",
+            f"{{% set previous = state_attr('sensor.{area_name}_temperature', 'previous_value')|float(20) %}}",
             "{% set threshold = 0.2 %}",
-            "{{ (current - previous) {} threshold }}".format(operator),
+            f"{{{{ (current - previous) {operator} threshold }}}}",
         ]
     )
 
@@ -145,12 +142,8 @@ def generate_humidity_change_template(area_name: str) -> str:
     """Generate template for humidity change calculation."""
     return "\n".join(
         [
-            "{% set current = states('sensor.{}_humidity')|float(50) %}".format(
-                area_name
-            ),
-            "{% set average = states('sensor.{}_average_humidity')|float(50) %}".format(
-                area_name
-            ),
+            f"{{% set current = states('sensor.{area_name}_humidity')|float(50) %}}",
+            f"{{% set average = states('sensor.{area_name}_average_humidity')|float(50) %}}",
             "{{ ((current - average) / average * 100)|round(1) }}",
         ]
     )
@@ -162,10 +155,8 @@ def generate_humidity_threshold_template(area_name: str, high: bool = True) -> s
     threshold = 75 if high else 30
     return "\n".join(
         [
-            "{% set current = states('sensor.{}_humidity')|float(50) %}".format(
-                area_name
-            ),
-            "{{ current {} {} }}".format(operator, threshold),
+            f"{{% set current = states('sensor.{area_name}_humidity')|float(50) %}}",
+            f"{{{{ current {operator} {threshold} }}}}",
         ]
     )
 
@@ -174,12 +165,8 @@ def generate_window_climate_impact_template(area_name: str) -> str:
     """Generate template for assessing window state impact on climate."""
     return "\n".join(
         [
-            "{% set temp_diff = states('sensor.{}_temp_differential')|float(0) %}".format(
-                area_name
-            ),
-            "{% set window_open = is_state('binary_sensor.{}_window_contact', 'on') %}".format(
-                area_name
-            ),
+            f"{{% set temp_diff = states('sensor.{area_name}_temp_differential')|float(0) %}}",
+            f"{{% set window_open = is_state('binary_sensor.{area_name}_window_contact', 'on') %}}",
             "{% if window_open %}",
             "  {% if temp_diff > 2 %}",
             "    'heating_loss'",

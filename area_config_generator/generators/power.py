@@ -1,28 +1,32 @@
 # area_config_generator/generators/power.py
-from typing import Dict, List
+"""Power monitoring configuration generator."""
+
+from typing import Any, Dict, List
+
+from ..utils.types import PowerComponent
 
 
-def generate_power_config(devices: List[str]) -> List[Dict]:
+def generate_power_config(devices: List[str]) -> List[Dict[str, List[Dict[str, Any]]]]:
     """Generate power monitoring configuration."""
-    components = []
+    components: List[Dict[str, List[Dict[str, Any]]]] = []
 
     # Map device types to their power components
-    device_components = get_device_power_components(devices)
+    device_components: Dict[str, PowerComponent] = get_device_power_components(devices)
 
     # Generate total power sensor
-    total_power = generate_total_power_sensor(device_components)
+    total_power: Dict[str, List[Dict[str, Any]]] = generate_total_power_sensor(device_components)
     components.append(total_power)
 
     # Generate daily energy sensor
-    daily_energy = generate_daily_energy_sensor(device_components)
+    daily_energy: Dict[str, List[Dict[str, Any]]] = generate_daily_energy_sensor(device_components)
     components.append(daily_energy)
 
     return components
 
 
-def get_device_power_components(devices: List[str]) -> Dict[str, Dict]:
+def get_device_power_components(devices: List[str]) -> Dict[str, PowerComponent]:
     """Map devices to their power monitoring components."""
-    components = {}
+    components: Dict[str, PowerComponent] = {}
 
     for device in devices:
         if device == "computer":
@@ -111,13 +115,13 @@ def get_device_power_components(devices: List[str]) -> Dict[str, Dict]:
     return components
 
 
-def generate_total_power_sensor(components: Dict[str, Dict]) -> Dict:
+def generate_total_power_sensor(components: dict[str, PowerComponent]) -> Dict[str, List[Dict[str, Any]]]:
     """Generate the total power sensor configuration."""
     # Build the power calculation template
-    power_template = ["{% set components = ["]
+    power_template: List[str] = ["{% set components = ["]
 
     # Add each component's power entity
-    power_entities = [f"'{comp['power_entity']}'" for comp in components.values()]
+    power_entities: List[str] = [f"'{comp['power_entity']}'" for comp in components.values()]
     power_template.append("    " + ",\n    ".join(power_entities))
 
     power_template.extend(
@@ -133,11 +137,9 @@ def generate_total_power_sensor(components: Dict[str, Dict]) -> Dict:
     )
 
     # Build attributes template with individual component values
-    attributes = {}
+    attributes: Dict[str, str] = {}
     for key, comp in components.items():
-        attributes[key] = (
-            f"{{{{ states('{comp['power_entity']}')|float(0)|round(2) }}}}"
-        )
+        attributes[key] = f"{{{{ states('{comp['power_entity']}')|float(0)|round(2) }}}}"
 
     return {
         "sensor": [
@@ -154,13 +156,13 @@ def generate_total_power_sensor(components: Dict[str, Dict]) -> Dict:
     }
 
 
-def generate_daily_energy_sensor(components: Dict[str, Dict]) -> Dict:
+def generate_daily_energy_sensor(components: dict[str, PowerComponent]) -> Dict[str, List[Dict[str, Any]]]:
     """Generate the daily energy sensor configuration."""
     # Build the energy calculation template
-    energy_template = ["{% set components = ["]
+    energy_template: List[str] = ["{% set components = ["]
 
     # Add each component's energy entity
-    energy_entities = [f"'{comp['energy_entity']}'" for comp in components.values()]
+    energy_entities: List[str] = [f"'{comp['energy_entity']}'" for comp in components.values()]
     energy_template.append("    " + ",\n    ".join(energy_entities))
 
     energy_template.extend(
@@ -184,9 +186,7 @@ def generate_daily_energy_sensor(components: Dict[str, Dict]) -> Dict:
                 "device_class": "energy",
                 "state_class": "total_increasing",
                 "unit_of_measurement": "kWh",
-                "attributes": {
-                    "last_reset": "{{ now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() }}"
-                },
+                "attributes": {"last_reset": "{{ now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() }}"},
             }
         ]
     }

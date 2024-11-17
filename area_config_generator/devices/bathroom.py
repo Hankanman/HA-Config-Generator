@@ -1,30 +1,28 @@
 # area_config_generator/devices/bathroom.py
-"""Configuration generator for bathroom fixtures."""
+"""Configuration generator for bathroom devices."""
 
-from typing import Dict, List
+from ..utils.types import AreaName, ConfigType
 
 
-def generate_bathroom_config(area_name: str) -> Dict:
-    """Generate configuration for bathroom fixtures."""
+def generate_bathroom_config(area_name: AreaName) -> ConfigType:
+    """Generate configuration for bathroom devices."""
     return {
         "template": [
             {
                 "binary_sensor": [
                     {
-                        "name": "Shower Active",
-                        "unique_id": f"{area_name}_shower_active",
+                        "name": f"{area_name.title()} Bathroom Humidity Alert",
+                        "unique_id": f"{area_name}_bathroom_humidity_alert",
                         "device_class": "moisture",
                         "state": "\n".join(
                             [
-                                "{% set humidity_change = states('sensor.bathroom_humidity_change')|float(0) %}",
-                                "{% set water_flow = states('sensor.bathroom_water_flow')|float(0) %}",
-                                "{{ humidity_change > 20 or water_flow > 0 }}",
+                                "{% set humidity = states('sensor.bathroom_humidity')|float(0) %}",
+                                "{{ humidity > 70 }}",
                             ]
                         ),
                         "attributes": {
-                            "humidity_change": "{{ states('sensor.bathroom_humidity_change')|float(0) }}",
-                            "water_flow": "{{ states('sensor.bathroom_water_flow')|float(0) }}",
-                            "steam_detected": "{{ states('sensor.bathroom_humidity_change')|float(0) > 20 }}",
+                            "humidity": "{{ states('sensor.bathroom_humidity')|float(0) }}",
+                            "temperature": "{{ states('sensor.bathroom_temperature')|float(0) }}",
                         },
                     }
                 ]
@@ -70,9 +68,32 @@ def generate_bathroom_config(area_name: str) -> Dict:
                 "device_class": "humidity",
                 "unit_of_measurement": "%",
                 "attributes": {
-                    "current_humidity": "{{ states('sensor.bathroom_humidity')|float(50) }}",
-                    "average_humidity": "{{ states('sensor.bathroom_average_humidity')|float(50) }}",
+                    "fan_speed": "{{ states('sensor.bathroom_fan_speed')|int(0) }}",
+                    "is_running": "{{ is_state('fan.bathroom_ventilation', 'on') }}",
                 },
+            }
+        ],
+        "state_template": [
+            {
+                "sensor": [
+                    {
+                        "name": f"{area_name.title()} Bathroom Comfort Level",
+                        "unique_id": f"{area_name}_bathroom_comfort_level",
+                        "state": "\n".join(
+                            [
+                                "{% set humidity = states('sensor.bathroom_humidity')|float(0) %}",
+                                "{% set temperature = states('sensor.bathroom_temperature')|float(0) %}",
+                                "{% if humidity > 70 and temperature > 25 %}"
+                                "uncomfortable"
+                                "{% elif humidity > 60 %}"
+                                "moderate"
+                                "{% else %}"
+                                "comfortable"
+                                "{% endif %}",
+                            ]
+                        ),
+                    }
+                ]
             }
         ],
     }

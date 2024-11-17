@@ -12,7 +12,7 @@
     "editor.codeActionsOnSave": {
       "source.organizeImports": "always"
     },
-    "editor.rulers": [88] // Black's line length
+    "editor.rulers": [125] // Updated from 88 to 125
   },
   "files.exclude": {
     "**/.git": true,
@@ -30,5 +30,6 @@
     "*.egg-info": true
   },
   "python.analysis.typeCheckingMode": "strict",
-  "python.linting.mypyArgs": ["--strict", "--ignore-missing-imports"]
+  "python.linting.mypyArgs": ["--strict", "--ignore-missing-imports"],
+  "python.linting.flake8Args": ["--max-line-length=125"]
 }

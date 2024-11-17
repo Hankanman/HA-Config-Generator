@@ -1,10 +1,10 @@
 # area_config_generator/devices/computer.py
 """Configuration generator for computer/PC setups."""
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
-def generate_computer_config(area_name: str) -> Dict:
+def generate_computer_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
     """Generate configuration for a computer setup."""
     return {
         "template": [

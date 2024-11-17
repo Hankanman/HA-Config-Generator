@@ -1,10 +1,12 @@
 # area_config_generator/utils/yaml_writer.py
-import yaml
 import os
-from typing import Dict
+
+import yaml
+
+from .types import AreaName, ConfigType
 
 
-def write_yaml_config(area_name: str, config: Dict) -> None:
+def write_yaml_config(area_name: AreaName, config: ConfigType) -> None:
     """Write the configuration to a YAML file."""
     # Create output directory if it doesn't exist
     os.makedirs("generated_configs", exist_ok=True)

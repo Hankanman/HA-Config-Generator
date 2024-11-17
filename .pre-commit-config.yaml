@@ -32,7 +32,7 @@ repos:
           - flake8-comprehensions
           - flake8-bugbear
           - flake8-annotations
-        args: ["--max-line-length=88"] # Match black's line length
+        args: ["--max-line-length=125"]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.5.1
