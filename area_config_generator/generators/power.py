@@ -1,28 +1,6 @@
-from typing import Any, Dict, List, TypedDict, cast
+from typing import Any, Dict, List
 
-from ..utils.types import PowerComponent
-
-
-class EntityIds(TypedDict, total=False):
-    """Type for confirmed entity IDs."""
-
-    pc_power: str
-    monitors_power: str
-    desk_power: str
-    tv_power: str
-    entertainment_power: str
-    appliance_power: str
-    bathroom_power: str
-    kitchen_power: str
-    extras_power: str
-
-
-class Features(TypedDict, total=False):
-    """Type for feature configuration."""
-
-    area_name: str
-    devices: List[str]
-    entity_ids: EntityIds
+from ..utils.types import EntityIds, Features, PowerComponent
 
 
 def generate_power_config(features: Features) -> List[Dict[str, List[Dict[str, Any]]]]:
@@ -30,8 +8,8 @@ def generate_power_config(features: Features) -> List[Dict[str, List[Dict[str, A
     components: List[Dict[str, List[Dict[str, Any]]]] = []
 
     area_name = str(features.get("area_name", ""))
-    entity_ids = cast(EntityIds, features.get("entity_ids", {}))
-    devices = cast(List[str], features.get("devices", []))
+    entity_ids = features.get("entity_ids", {})
+    devices = features.get("devices", [])
 
     # Map device types to their power components
     device_components: Dict[str, PowerComponent] = get_device_power_components(
@@ -41,11 +19,11 @@ def generate_power_config(features: Features) -> List[Dict[str, List[Dict[str, A
     # Only generate power sensors if we have components
     if device_components:
         # Generate total power sensor
-        total_power: Dict[str, List[Dict[str, Any]]] = generate_total_power_sensor(device_components)
+        total_power = generate_total_power_sensor(device_components)
         components.append(total_power)
 
         # Generate daily energy sensor
-        daily_energy: Dict[str, List[Dict[str, Any]]] = generate_daily_energy_sensor(device_components)
+        daily_energy = generate_daily_energy_sensor(device_components)
         components.append(daily_energy)
 
     return components

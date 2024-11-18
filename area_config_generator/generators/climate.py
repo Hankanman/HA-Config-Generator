@@ -1,47 +1,17 @@
-from typing import Dict, List, Optional, TypedDict, cast
+from typing import Dict, List
+
+from ..utils.types import Features, SensorConfig
 
 
-class SensorDict(TypedDict, total=False):
-    """Sensor configuration dictionary."""
-
-    name: Optional[str]
-    unique_id: Optional[str]
-    state: Optional[str]
-    device_class: Optional[str]
-    state_class: Optional[str]
-    unit_of_measurement: Optional[str]
-    attributes: Optional[Dict[str, str]]
-
-
-class EntityIds(TypedDict, total=False):
-    """Type for confirmed entity IDs."""
-
-    climate: str  # climate.area
-    temperature: str  # sensor.area_temperature
-    humidity: str  # sensor.area_humidity
-    window: str  # binary_sensor.area_window
-
-
-class Features(TypedDict, total=False):
-    """Type for feature configuration."""
-
-    area_name: str
-    humidity_sensor: bool
-    window_sensor: bool
-    temperature_sensor: bool
-    entity_ids: EntityIds
-
-
-def generate_climate_config(features: Features) -> List[Dict[str, List[SensorDict]]]:
+def generate_climate_config(features: Features) -> List[Dict[str, List[SensorConfig]]]:
     """Generate climate control configuration."""
     area_name = str(features.get("area_name", ""))
-    entity_ids = cast(EntityIds, features.get("entity_ids", {}))
-
-    components: List[Dict[str, List[SensorDict]]] = []
+    entity_ids = features.get("entity_ids", {})
+    components: List[Dict[str, List[SensorConfig]]] = []
 
     # Get confirmed entity IDs with fallbacks
-    climate_entity = cast(str, entity_ids.get("climate", f"climate.{area_name}"))
-    temp_entity = cast(str, entity_ids.get("temperature", f"sensor.{area_name}_temperature"))
+    climate_entity = entity_ids.get("climate", f"climate.{area_name}")
+    temp_entity = entity_ids.get("temperature", f"sensor.{area_name}_temperature")
 
     # Generate temperature differential sensor
     components.extend(
@@ -50,12 +20,12 @@ def generate_climate_config(features: Features) -> List[Dict[str, List[SensorDic
 
     # Generate humidity sensors if applicable
     if features.get("humidity_sensor"):
-        humidity_entity = cast(str, entity_ids.get("humidity", f"sensor.{area_name}_humidity"))
+        humidity_entity = entity_ids.get("humidity", f"sensor.{area_name}_humidity")
         components.extend(generate_humidity_sensors(area_name=area_name, humidity_entity=humidity_entity))
 
     # Add window state monitoring if applicable
     if features.get("window_sensor"):
-        window_entity = cast(str, entity_ids.get("window", f"binary_sensor.{area_name}_window"))
+        window_entity = entity_ids.get("window", f"binary_sensor.{area_name}_window")
         components.extend(
             generate_window_monitoring(area_name=area_name, window_entity=window_entity, temp_entity=temp_entity)
         )
@@ -63,7 +33,9 @@ def generate_climate_config(features: Features) -> List[Dict[str, List[SensorDic
     return components
 
 
-def generate_temperature_sensors(area_name: str, climate_entity: str, temp_entity: str) -> List[Dict[str, List[SensorDict]]]:
+def generate_temperature_sensors(
+    area_name: str, climate_entity: str, temp_entity: str
+) -> List[Dict[str, List[SensorConfig]]]:
     """Generate temperature monitoring sensors."""
     return [
         {
@@ -88,19 +60,21 @@ def generate_temperature_sensors(area_name: str, climate_entity: str, temp_entit
                     "unique_id": f"{area_name}_temp_rising",
                     "device_class": "heat",
                     "state": generate_temp_trend_template(temp_entity, rising=True),
+                    "attributes": {},  # Added empty attributes
                 },
                 {
                     "name": f"{area_name.title()} Temperature Falling",
                     "unique_id": f"{area_name}_temp_falling",
                     "device_class": "cold",
                     "state": generate_temp_trend_template(temp_entity, rising=False),
+                    "attributes": {},  # Added empty attributes
                 },
             ],
         }
     ]
 
 
-def generate_humidity_sensors(area_name: str, humidity_entity: str) -> List[Dict[str, List[SensorDict]]]:
+def generate_humidity_sensors(area_name: str, humidity_entity: str) -> List[Dict[str, List[SensorConfig]]]:
     """Generate humidity monitoring sensors."""
     return [
         {
@@ -124,13 +98,14 @@ def generate_humidity_sensors(area_name: str, humidity_entity: str) -> List[Dict
                     "unique_id": f"{area_name}_high_humidity",
                     "device_class": "moisture",
                     "state": generate_humidity_threshold_template(humidity_entity, high=True),
+                    "attributes": {},  # Added empty attributes
                 }
             ],
         }
     ]
 
 
-def generate_window_monitoring(area_name: str, window_entity: str, temp_entity: str) -> List[Dict[str, List[SensorDict]]]:
+def generate_window_monitoring(area_name: str, window_entity: str, temp_entity: str) -> List[Dict[str, List[SensorConfig]]]:
     """Generate window state monitoring configuration."""
     return [
         {
