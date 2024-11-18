@@ -6,11 +6,9 @@ from typing_extensions import NotRequired, TypedDict
 from yaml.nodes import ScalarNode
 
 from .types import (
-    AreaName,
     ConfigType,
     ProcessedConfigValue,
     ProcessedDictValue,
-    TemplateConfigItem,
     TemplateItem,
     TemplateList,
     convert_to_processed_config_value,
@@ -157,7 +155,7 @@ def _process_config_item(item: Union[TemplateItem, TemplateConfigItem]) -> Templ
     return processed_item
 
 
-def write_yaml_config(area_name: AreaName, config: ConfigType) -> None:
+def write_yaml_config(area_name: str, config: ConfigType) -> None:
     """Write the configuration to a YAML file with improved template handling."""
     # Register the template presenter
     CustomDumper.add_representer(str, template_presenter)

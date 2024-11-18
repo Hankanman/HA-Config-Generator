@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from ..utils.types import Features, SensorConfig
+from ..utils.types import Features
 
 
 def generate_climate_config(features: Features) -> List[Dict[str, List[SensorConfig]]]:

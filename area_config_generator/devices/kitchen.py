@@ -1,7 +1,5 @@
 # area_config_generator/devices/kitchen.py
 
-from typing import cast
-
 from ..utils.types import BinarySensorTemplate, DeviceConfig, DeviceConfigReturn, FanTemplate, SensorTemplate
 from ..utils.validation import ensure_valid_config
 
@@ -113,4 +111,4 @@ def generate_kitchen_config(area_name: str, normalized_area_name: str) -> Device
     # Validate the configuration before returning
     ensure_valid_config(config, "kitchen device config")
 
-    return cast(DeviceConfigReturn, config)
+    return config

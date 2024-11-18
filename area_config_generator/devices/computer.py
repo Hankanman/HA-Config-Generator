@@ -1,7 +1,5 @@
 # area_config_generator/devices/computer.py
 
-from typing import cast
-
 from ..utils.types import BinarySensorTemplate, DeviceConfig, DeviceConfigReturn, SensorTemplate
 from ..utils.validation import ensure_valid_config
 
@@ -58,4 +56,4 @@ def generate_computer_config(area_name: str, normalized_area_name: str) -> Devic
     # Validate the configuration before returning
     ensure_valid_config(config, "computer device config")
 
-    return cast(DeviceConfigReturn, config)
+    return config

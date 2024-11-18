@@ -1,7 +1,5 @@
 # area_config_generator/devices/tv.py
 
-from typing import cast
-
 from ..utils.types import BinarySensorTemplate, DeviceConfig, DeviceConfigReturn, SensorTemplate
 from ..utils.validation import ensure_valid_config
 
@@ -68,4 +66,4 @@ def generate_tv_config(area_name: str, normalized_area_name: str) -> DeviceConfi
     # Validate the configuration before returning
     ensure_valid_config(config, "tv device config")
 
-    return cast(DeviceConfigReturn, config)
+    return config
