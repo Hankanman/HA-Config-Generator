@@ -1,51 +1,89 @@
-# area_config_generator/utils/types.py
+"""
+Type definitions and utility functions for the Area Config Generator.
+
+This module provides comprehensive type definitions and utility functions
+to support type-safe configuration generation for Home Assistant areas.
+"""
+
 from __future__ import annotations  # Added for forward references
 
 from typing import Any, Callable, Dict, Hashable, List, Literal, TypeAlias, TypeVar, Union, cast
 
 from typing_extensions import NotRequired, TypedDict
 
-# Basic types
+# Basic Type Definitions
+# These define fundamental types used throughout the configuration generation process
 ConfigType = Dict[str, Dict[str, Any]]
+"""A dictionary representing the overall configuration structure."""
+
 AreaName = str
+"""Type alias for area names."""
+
 TemplateConfig = Dict[str, Union[str, int, List[str]]]
+"""Configuration template with mixed value types."""
+
 FeatureValue = Union[bool, List[str], str]
+"""Possible values for feature configurations."""
+
 FeatureType = Dict[str, FeatureValue]
+"""Dictionary of features with their corresponding values."""
+
 ConfigGeneratorFunc = Callable[[AreaName], ConfigType]
+"""Type for functions that generate configurations for a specific area."""
 
-EntityType = Literal[
-    "climate", "binary_sensor", "sensor", "input_boolean", "input_number", "switch", "fan", "light", "scene"
-]
-DeviceOptionsType = Dict[str, str]
-
-# Generic type variables
+# Type Variables and Generic Types
 KT = TypeVar("KT", bound=Hashable)
+"""Generic type variable for dictionary keys that are hashable."""
+
 VT = TypeVar("VT")
+"""Generic type variable for dictionary values."""
 
 
-# Precise dictionary type
 class PreciseDict(Dict[KT, VT]):
     """A dictionary with more precise key and value types."""
 
     pass
 
 
-# Processed configuration value types
+# Entity and Domain Types
+EntityType = Literal[
+    "climate", "binary_sensor", "sensor", "input_boolean", "input_number", "switch", "fan", "light", "scene"
+]
+"""Literal type representing possible Home Assistant entity domains."""
+
+DeviceOptionsType = Dict[str, str]
+"""Dictionary of device-specific options."""
+
+# Processed Configuration Value Types
 ProcessedScalarValue = Union[str, int, float, bool]
+"""Scalar values that can be processed in configurations."""
+
 ProcessedDictValue = Dict[str, "ProcessedConfigValue"]
+"""Nested dictionary of processed configuration values."""
+
 ProcessedListValue = List["ProcessedConfigValue"]
+"""List of processed configuration values."""
+
 ProcessedConfigValue = Union[ProcessedScalarValue, ProcessedDictValue, ProcessedListValue]
+"""Union type representing all possible processed configuration value types."""
 
-# Template specific types
-TemplateItem = Dict[str, List[Dict[str, Any]]]
-TemplateList = List[TemplateItem]
-
-# Recursive dictionary type for processed configuration
 ProcessedDict: TypeAlias = Dict[str, ProcessedConfigValue]
+"""Type alias for processed configuration dictionaries."""
+
+# Template-Specific Types
+TemplateItem = Dict[str, List[Dict[str, Any]]]
+"""A dictionary representing a template configuration item."""
+
+TemplateList = List[TemplateItem]
+"""A list of template configuration items."""
+
+DeviceConfigType = Dict[str, List[Dict[str, Any]]]
+"""Type for device configuration dictionaries."""
 
 
+# Entity Configuration Types
 class EntityConfig(TypedDict):
-    """Configuration for an entity."""
+    """Configuration details for a specific entity."""
 
     domain: EntityType
     suggested_id: str
@@ -53,7 +91,7 @@ class EntityConfig(TypedDict):
 
 
 class EntityIds(TypedDict, total=False):
-    """Type for entity IDs."""
+    """Comprehensive type for tracking entity IDs across different domains."""
 
     climate: str
     temperature: str
@@ -80,8 +118,9 @@ class EntityIds(TypedDict, total=False):
     light_scene: str
 
 
+# Feature and Lighting Configuration Types
 class LightingDefaults(TypedDict, total=False):
-    """Type for lighting default configurations."""
+    """Default configuration options for lighting."""
 
     brightness: int
     color_temp: str
@@ -89,7 +128,7 @@ class LightingDefaults(TypedDict, total=False):
 
 
 class Features(TypedDict, total=False):
-    """Type for feature configuration."""
+    """Comprehensive feature configuration for an area."""
 
     area_name: str
     normalized_area_name: str
@@ -106,9 +145,21 @@ class Features(TypedDict, total=False):
     entity_ids: EntityIds
 
 
-# Sensor base configurations
+# Device and Sensor Base Templates
+class DeviceTemplate(TypedDict):
+    """Base template for device configurations with optional attributes."""
+
+    name: str
+    unique_id: str
+    attributes: NotRequired[Dict[str, str]]
+    state: NotRequired[str]
+    device_class: NotRequired[str]
+    unit_of_measurement: NotRequired[str]
+    icon: NotRequired[str]
+
+
 class SensorConfigBase(TypedDict, total=False):
-    """Base configuration for sensors."""
+    """Base configuration for sensors with comprehensive options."""
 
     name: str
     unique_id: str
@@ -121,7 +172,7 @@ class SensorConfigBase(TypedDict, total=False):
 
 
 class SensorBase(TypedDict, total=False):
-    """Base sensor configuration."""
+    """Simplified sensor base configuration."""
 
     name: str
     unique_id: str
@@ -133,35 +184,26 @@ class SensorBase(TypedDict, total=False):
 
 
 class BinarySensorConfig(SensorConfigBase):
-    """Binary sensor specific configuration."""
+    """Specific configuration for binary sensors."""
 
     pass
 
 
 class SensorConfig(SensorConfigBase):
-    """Regular sensor specific configuration."""
+    """Specific configuration for regular sensors."""
 
     pass
 
 
-# Fan configuration
-class FanConfig(TypedDict):
-    """Fan configuration."""
-
-    platform: Literal["template"]
-    fans: Dict[str, Dict[str, Any]]
-
-
-# State template configuration
+# State and Template Configurations
 class StateTemplateConfig(TypedDict):
-    """State template configuration."""
+    """Configuration for state templates."""
 
     sensor: List[Dict[str, Any]]
 
 
-# Template configuration item
 class TemplateConfigItem(TypedDict, total=False):
-    """Template configuration item with optional fields."""
+    """Flexible template configuration with optional components."""
 
     binary_sensor: NotRequired[List[BinarySensorConfig]]
     sensor: NotRequired[List[SensorConfig]]
@@ -169,8 +211,10 @@ class TemplateConfigItem(TypedDict, total=False):
     state_template: NotRequired[List[Dict[str, Any]]]
 
 
-# Input configurations
+# Input Configurations
 class InputNumberConfig(TypedDict):
+    """Configuration for numeric input entities."""
+
     name: str
     min: float
     max: float
@@ -181,41 +225,125 @@ class InputNumberConfig(TypedDict):
 
 
 class InputBooleanConfig(TypedDict):
+    """Configuration for boolean input entities."""
+
     name: str
     icon: str
 
 
-# Area configuration
+# Area and Configuration Types
 class AreaConfig(TypedDict):
+    """Complete configuration for a specific area."""
+
     template: TemplateList
     input_number: Dict[str, InputNumberConfig]
     input_boolean: Dict[str, InputBooleanConfig]
 
 
-# Area configuration type
 AreaConfigType = Dict[str, AreaConfig]
+"""Type alias for area configurations."""
 
 
-# Power component
+# Power and Occupancy Types
 class PowerComponent(TypedDict):
-    """Power component configuration."""
+    """Configuration for power-related entities."""
 
     power_entity: str
     energy_entity: str
     description: str
 
 
-# Occupancy trigger
 class OccupancyTrigger(TypedDict, total=False):
-    """Occupancy trigger configuration."""
+    """Configuration for occupancy triggers with optional fields."""
 
     weight: int
     description: str
     condition: str
 
 
+# Device Template Types
+class BaseDeviceTemplate(TypedDict, total=False):
+    """Base template with optional device configuration fields."""
+
+    attributes: Dict[str, str]
+    state: str
+    icon: str
+
+
+class RequiredDeviceFields(TypedDict):
+    """Required fields for all device templates."""
+
+    name: str
+    unique_id: str
+
+
+class BinarySensorTemplate(RequiredDeviceFields, BaseDeviceTemplate):
+    """Specific template for binary sensor configurations."""
+
+    device_class: str
+
+
+class SensorTemplate(RequiredDeviceFields, BaseDeviceTemplate):
+    """Specific template for sensor configurations."""
+
+    unit_of_measurement: str
+    state_class: NotRequired[str]
+
+
+# Fan-specific Types
+class FanSpeedAction(TypedDict):
+    """Configuration for fan speed control actions."""
+
+    service: str
+    entity_id: str
+    data_template: Dict[str, str]
+
+
+class FanConfig(TypedDict):
+    """Comprehensive configuration for individual fan entities."""
+
+    friendly_name: str
+    value_template: str
+    speed_template: str
+    turn_on: Dict[str, str]
+    turn_off: Dict[str, str]
+    set_speed: FanSpeedAction
+    speeds: List[str]
+
+
+class FanTemplate(TypedDict):
+    """Template configuration for fan platforms."""
+
+    platform: Literal["template"]
+    fans: Dict[str, FanConfig]
+
+
+# Component and Configuration Type Unions
+TemplateComponent = Union[BinarySensorTemplate, SensorTemplate, FanTemplate]
+"""Union type for components that can appear in a template."""
+
+
+class DeviceConfig(TypedDict):
+    """Configuration structure for device types."""
+
+    template: List[Dict[str, List[TemplateComponent]]]
+
+
+DeviceConfigReturn = Dict[str, List[Dict[str, List[TemplateComponent]]]]
+"""Return type for device generation functions."""
+
+
+# Utility Functions
 def convert_template_config_to_item(config: TemplateConfigItem) -> TemplateItem:
-    """Convert TemplateConfigItem to TemplateItem safely."""
+    """
+    Convert a TemplateConfigItem to a TemplateItem safely.
+
+    Args:
+        config (TemplateConfigItem): The input configuration to convert.
+
+    Returns:
+        TemplateItem: A safely converted template item.
+    """
     result: TemplateItem = {}
 
     if "binary_sensor" in config:
@@ -234,13 +362,17 @@ def convert_template_config_to_item(config: TemplateConfigItem) -> TemplateItem:
 
 
 def convert_to_processed_config_value(value: Any) -> ProcessedConfigValue:
-    """Convert a value to ProcessedConfigValue.
+    """
+    Recursively convert a value to a ProcessedConfigValue.
+
+    This function handles nested structures like lists and dictionaries,
+    converting them to a type-safe representation.
 
     Args:
-        value: The value to convert
+        value (Any): The value to convert.
 
     Returns:
-        Processed configuration value
+        ProcessedConfigValue: A type-safe, processed configuration value.
     """
     if isinstance(value, (str, int, float, bool)):
         return value
@@ -257,7 +389,15 @@ def convert_to_processed_config_value(value: Any) -> ProcessedConfigValue:
 
 
 def convert_area_config_to_config(area_config: AreaConfigType) -> ConfigType:
-    """Convert AreaConfigType to ConfigType with type safety."""
+    """
+    Convert an AreaConfigType to a ConfigType with type safety.
+
+    Args:
+        area_config (AreaConfigType): The input area configuration.
+
+    Returns:
+        ConfigType: A type-safe configuration dictionary.
+    """
     config: ConfigType = {}
 
     for area_name, area_details in area_config.items():

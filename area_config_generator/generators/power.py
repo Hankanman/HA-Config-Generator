@@ -63,8 +63,8 @@ def get_device_power_components(
             )
 
         elif device == "tv":
-            tv_power = entity_ids.get("tv_power", f"sensor.{area_name}_tv_power")
-            entertainment_power = entity_ids.get("entertainment_power", f"sensor.{area_name}_entertainment_power")
+            tv_power = entity_ids.get("tv_power", f"sensor.{normalized_area_name}_tv_power")
+            entertainment_power = entity_ids.get("entertainment_power", f"sensor.{normalized_area_name}_entertainment_power")
 
             components.update(
                 {
@@ -82,7 +82,7 @@ def get_device_power_components(
             )
 
         elif device == "appliance":
-            appliance_power = entity_ids.get("appliance_power", f"sensor.{area_name}_appliance_power")
+            appliance_power = entity_ids.get("appliance_power", f"sensor.{normalized_area_name}_appliance_power")
             components.update(
                 {
                     "appliance": {
@@ -94,7 +94,7 @@ def get_device_power_components(
             )
 
         elif device == "bathroom":
-            bathroom_power = entity_ids.get("bathroom_power", f"sensor.{area_name}_bathroom_power")
+            bathroom_power = entity_ids.get("bathroom_power", f"sensor.{normalized_area_name}_bathroom_power")
             components.update(
                 {
                     "bathroom": {
@@ -106,7 +106,7 @@ def get_device_power_components(
             )
 
         elif device == "kitchen":
-            kitchen_power = entity_ids.get("kitchen_power", f"sensor.{area_name}_kitchen_power")
+            kitchen_power = entity_ids.get("kitchen_power", f"sensor.{normalized_area_name}_kitchen_power")
 
             if kitchen_power:
                 components.update(
@@ -123,15 +123,6 @@ def get_device_power_components(
                         },
                     }
                 )
-
-    # Add extras/misc power for any area with powered devices
-    if components:
-        extras_power = entity_ids.get("extras_power", f"sensor.{normalized_area_name}_extras_power")
-        components["extras"] = {
-            "power_entity": extras_power,
-            "energy_entity": extras_power.replace("_power", "_daily_energy"),
-            "description": "Other Devices",
-        }
 
     return components
 
