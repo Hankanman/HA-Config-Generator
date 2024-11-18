@@ -13,7 +13,9 @@ FeatureValue = Union[bool, List[str], str]
 FeatureType = Dict[str, FeatureValue]
 ConfigGeneratorFunc = Callable[[AreaName], ConfigType]
 
-EntityType = Literal["climate", "binary_sensor", "sensor", "input_boolean", "input_number", "switch", "fan"]
+EntityType = Literal[
+    "climate", "binary_sensor", "sensor", "input_boolean", "input_number", "switch", "fan", "light", "scene"
+]
 DeviceOptionsType = Dict[str, str]
 
 # Generic type variables
@@ -74,6 +76,16 @@ class EntityIds(TypedDict, total=False):
     kitchen_active: str
     extras_power: str
     occupied_override: str
+    light_group: str
+    light_scene: str
+
+
+class LightingDefaults(TypedDict, total=False):
+    """Type for lighting default configurations."""
+
+    brightness: int
+    color_temp: str
+    transition: int
 
 
 class Features(TypedDict, total=False):
@@ -88,6 +100,8 @@ class Features(TypedDict, total=False):
     humidity_sensor: bool
     power_monitoring: bool
     climate_control: bool
+    smart_lighting: bool
+    lighting_defaults: LightingDefaults
     devices: List[str]
     entity_ids: EntityIds
 

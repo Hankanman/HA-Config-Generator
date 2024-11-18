@@ -4,7 +4,7 @@
 from typing import Any, Dict, List
 
 
-def generate_computer_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
+def generate_computer_config(area_name: str, normalized_area_name: str) -> Dict[str, List[Dict[str, Any]]]:
     """Generate configuration for a computer setup."""
     return {
         "template": [
@@ -12,7 +12,7 @@ def generate_computer_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
                 "binary_sensor": [
                     {
                         "name": f"{area_name.title()} PC Active",
-                        "unique_id": f"{area_name}_pc_active",
+                        "unique_id": f"{normalized_area_name}_pc_active",
                         "device_class": "power",
                         "state": "\n".join(
                             [
@@ -33,7 +33,7 @@ def generate_computer_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
         "sensor": [
             {
                 "name": f"{area_name.title()} PC Status",
-                "unique_id": f"{area_name}_pc_status",
+                "unique_id": f"{normalized_area_name}_pc_status",
                 "state": "{{ states('sensor.pc_state') }}",
                 "attributes": {
                     "uptime": "{{ states('sensor.pc_uptime') }}",

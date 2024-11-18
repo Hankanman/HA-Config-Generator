@@ -6,20 +6,21 @@ from ..utils.types import Features, OccupancyTrigger
 def generate_occupancy_config(features: Features) -> List[Dict[str, List[Dict[str, Any]]]]:
     """Generate occupancy detection configuration."""
     area_name = str(features.get("area_name", ""))
+    normalized_area_name = str(features.get("normalized_area_name", area_name.lower()))
     entity_ids = features.get("entity_ids", {})
 
     # Build list of occupancy triggers and their weights
     triggers: Dict[str, OccupancyTrigger] = {}
 
     if features.get("motion_sensor"):
-        motion_entity = entity_ids.get("motion", f"binary_sensor.{area_name}_motion")
+        motion_entity = entity_ids.get("motion", f"binary_sensor.{normalized_area_name}_motion")
         triggers[motion_entity] = {
             "weight": 2,
             "description": "Motion Detected",
         }
 
     if features.get("door_sensor"):
-        door_entity = entity_ids.get("door", f"binary_sensor.{area_name}_door_contact")
+        door_entity = entity_ids.get("door", f"binary_sensor.{normalized_area_name}_door_contact")
         triggers[door_entity] = {
             "weight": 1,
             "description": "Door Closed",
@@ -29,14 +30,14 @@ def generate_occupancy_config(features: Features) -> List[Dict[str, List[Dict[st
     devices = features.get("devices", [])
     for device in devices:
         if device == "computer":
-            pc_entity = entity_ids.get("pc_active", f"binary_sensor.{area_name}_pc_active")
+            pc_entity = entity_ids.get("pc_active", f"binary_sensor.{normalized_area_name}_pc_active")
             triggers[pc_entity] = {
                 "weight": 3,
                 "description": "PC Active",
             }
 
         if device == "tv":
-            tv_entity = entity_ids.get("tv_active", f"binary_sensor.{area_name}_tv_active")
+            tv_entity = entity_ids.get("tv_active", f"binary_sensor.{normalized_area_name}_tv_active")
             triggers[tv_entity] = {
                 "weight": 2,
                 "description": "TV Active",
@@ -44,21 +45,21 @@ def generate_occupancy_config(features: Features) -> List[Dict[str, List[Dict[st
 
         # Special device handling
         if device in ("appliance", "bathroom"):
-            device_entity = entity_ids.get(f"{device}_active", f"binary_sensor.{area_name}_{device}_active")
+            device_entity = entity_ids.get(f"{device}_active", f"binary_sensor.{normalized_area_name}_{device}_active")
             triggers[device_entity] = {
                 "weight": 2,
                 "description": f"{device.title()} Active",
             }
 
     # Get override entity
-    override_entity = entity_ids.get("occupied_override", f"input_boolean.{area_name}_occupied_override")
+    override_entity = entity_ids.get("occupied_override", f"input_boolean.{normalized_area_name}_occupied_override")
 
     return [
         {
             "binary_sensor": [
                 {
                     "name": f"{area_name.title()} Occupancy",
-                    "unique_id": f"{area_name}_occupancy",
+                    "unique_id": f"{normalized_area_name}_occupancy",
                     "device_class": "occupancy",
                     "state": generate_occupancy_state_template(triggers, override_entity),
                     "attributes": {

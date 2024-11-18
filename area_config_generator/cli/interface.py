@@ -13,6 +13,7 @@ from ..utils.types import (
     Features,
     InputBooleanConfig,
     InputNumberConfig,
+    LightingDefaults,
     TemplateConfigItem,
     convert_area_config_to_config,
     convert_template_config_to_item,
@@ -59,7 +60,8 @@ def confirm_entity_id(domain: EntityType, suggested_id: str, description: str) -
 
 def get_entity_config(area_name: str, features: Features) -> EntityIds:
     """Get and confirm all entity IDs for the area."""
-    entities: Dict[str, EntityConfig] = {}
+    # Explicitly type the list of entities
+    entities: List[EntityConfig] = []
     confirmed_entities: EntityIds = {}
 
     # Normalize area_name for entity IDs while preserving original for display
@@ -67,77 +69,124 @@ def get_entity_config(area_name: str, features: Features) -> EntityIds:
 
     # Basic entities
     if features.get("climate_control"):
-        entities["climate"] = {"domain": "climate", "suggested_id": normalized_area_name, "description": "climate control"}
+        entities.append({"domain": "climate", "suggested_id": normalized_area_name, "description": "climate control"})
 
     if features.get("motion_sensor"):
-        entities["motion"] = {
-            "domain": "binary_sensor",
-            "suggested_id": f"{normalized_area_name}_motion",
-            "description": "motion sensor",
-        }
+        entities.append(
+            {
+                "domain": "binary_sensor",
+                "suggested_id": f"{normalized_area_name}_motion",
+                "description": "motion sensor",
+            }
+        )
 
     if features.get("door_sensor"):
-        entities["door"] = {
-            "domain": "binary_sensor",
-            "suggested_id": f"{normalized_area_name}_door_contact",
-            "description": "door contact sensor",
-        }
+        entities.append(
+            {
+                "domain": "binary_sensor",
+                "suggested_id": f"{normalized_area_name}_door_contact",
+                "description": "door contact sensor",
+            }
+        )
 
     if features.get("temperature_sensor"):
-        entities["temperature"] = {
-            "domain": "sensor",
-            "suggested_id": f"{normalized_area_name}_temperature",
-            "description": "temperature sensor",
+        entities.append(
+            {
+                "domain": "sensor",
+                "suggested_id": f"{normalized_area_name}_temperature",
+                "description": "temperature sensor",
+            }
+        )
+
+    # Lighting entities
+    if features.get("smart_lighting"):
+        # Explicitly type the light and scene entities
+        light_group_entity: EntityConfig = {
+            "domain": "light",
+            "suggested_id": f"{normalized_area_name}_lights",
+            "description": "area light group",
         }
+        light_scene_entity: EntityConfig = {
+            "domain": "scene",
+            "suggested_id": f"{normalized_area_name}_light_scene",
+            "description": "default light scene",
+        }
+        entities.extend([light_group_entity, light_scene_entity])
 
     # Device-specific entities
     devices = features.get("devices", [])
     for device in devices:
         if device == "computer":
-            entities["pc_power"] = {
-                "domain": "sensor",
-                "suggested_id": f"{normalized_area_name}_pc_power",
-                "description": "PC power sensor",
-            }
-            entities["pc_active"] = {
-                "domain": "binary_sensor",
-                "suggested_id": f"{normalized_area_name}_pc_active",
-                "description": "PC state sensor",
-            }
+            entities.extend(
+                [
+                    {
+                        "domain": "sensor",
+                        "suggested_id": f"{normalized_area_name}_pc_power",
+                        "description": "PC power sensor",
+                    },
+                    {
+                        "domain": "binary_sensor",
+                        "suggested_id": f"{normalized_area_name}_pc_active",
+                        "description": "PC state sensor",
+                    },
+                ]
+            )
         elif device == "tv":
-            entities["tv_power"] = {
-                "domain": "sensor",
-                "suggested_id": f"{normalized_area_name}_tv_power",
-                "description": "TV power sensor",
-            }
-            entities["tv_active"] = {
-                "domain": "binary_sensor",
-                "suggested_id": f"{normalized_area_name}_tv_active",
-                "description": "TV state sensor",
-            }
+            entities.extend(
+                [
+                    {
+                        "domain": "sensor",
+                        "suggested_id": f"{normalized_area_name}_tv_power",
+                        "description": "TV power sensor",
+                    },
+                    {
+                        "domain": "binary_sensor",
+                        "suggested_id": f"{normalized_area_name}_tv_active",
+                        "description": "TV state sensor",
+                    },
+                ]
+            )
         elif device in ["appliance", "bathroom", "kitchen"]:
-            entities[f"{device}_power"] = {
-                "domain": "sensor",
-                "suggested_id": f"{normalized_area_name}_{device}_power",
-                "description": f"{device.title()} power sensor",
-            }
-            entities[f"{device}_active"] = {
-                "domain": "binary_sensor",
-                "suggested_id": f"{normalized_area_name}_{device}_active",
-                "description": f"{device.title()} state sensor",
-            }
+            entities.extend(
+                [
+                    {
+                        "domain": "sensor",
+                        "suggested_id": f"{normalized_area_name}_{device}_power",
+                        "description": f"{device.title()} power sensor",
+                    },
+                    {
+                        "domain": "binary_sensor",
+                        "suggested_id": f"{normalized_area_name}_{device}_active",
+                        "description": f"{device.title()} state sensor",
+                    },
+                ]
+            )
 
     # Add input_boolean entities
-    entities["occupied_override"] = {
-        "domain": "input_boolean",
-        "suggested_id": f"{normalized_area_name}_occupied_override",
-        "description": "occupancy override switch",
-    }
+    entities.append(
+        {
+            "domain": "input_boolean",
+            "suggested_id": f"{normalized_area_name}_occupied_override",
+            "description": "occupancy override switch",
+        }
+    )
 
     # Get confirmation for each entity
     click.echo("\nPlease confirm the entity IDs for your configuration:")
-    for key, config in entities.items():
-        confirmed_entities[key] = confirm_entity_id(config["domain"], config["suggested_id"], config["description"])
+    for entity_config in entities:
+        # Use a more robust key extraction method
+        key = entity_config["suggested_id"].split("_")[-1]
+
+        # Ensure the key is unique
+        base_key = key
+        counter = 1
+        while key in confirmed_entities:
+            key = f"{base_key}_{counter}"
+            counter += 1
+
+        confirmed_entities[key] = confirm_entity_id(
+            entity_config["domain"], entity_config["suggested_id"], entity_config["description"]
+        )
 
     return confirmed_entities
 
@@ -215,6 +264,11 @@ def get_area_features(area_name: str) -> Features:
     features["temperature_sensor"] = click.confirm("Does this area have temperature sensors?", default=True)
     features["humidity_sensor"] = click.confirm("Does this area have humidity sensors?", default=False)
 
+    # Add smart lighting as a feature
+    features["smart_lighting"] = click.confirm("Does this area have smart lighting?", default=True)
+    if features["smart_lighting"]:
+        features["lighting_defaults"] = get_lighting_defaults()
+
     if click.confirm("Does this area have powered devices?", default=True):
         features["power_monitoring"] = True
         features["devices"] = get_device_types()
@@ -227,6 +281,24 @@ def get_area_features(area_name: str) -> Features:
     return features
 
 
+def get_lighting_defaults() -> LightingDefaults:
+    """Get default lighting configuration."""
+    click.echo("\nConfigure default lighting settings:")
+
+    # Create a LightingDefaults dictionary with explicit type hints
+    defaults: LightingDefaults = {
+        "brightness": click.prompt("Default brightness (0-100%)", type=int, default=50, show_default=True),
+        "color_temp": click.prompt(
+            "Default color temperature (warm/cool/neutral)",
+            type=click.Choice(["warm", "cool", "neutral"]),
+            default="neutral",
+        ),
+        "transition": click.prompt("Default transition time (seconds)", type=int, default=1, show_default=True),
+    }
+
+    return defaults
+
+
 def get_device_types() -> List[str]:
     """Get specific devices in the area."""
     devices: List[str] = []
@@ -235,7 +307,6 @@ def get_device_types() -> List[str]:
         "computer": "Computer/PC setup",
         "tv": "Television/Entertainment system",
         "appliance": "Major appliances (washing machine, dishwasher, etc)",
-        "lighting": "Smart lighting",
         "bathroom": "Bathroom fixtures (shower, toilet, etc)",
         "kitchen": "Kitchen appliances (fridge, oven, etc)",
     }
@@ -301,10 +372,12 @@ def generate_input_controls(features: Features) -> Dict[str, Dict[str, Union[Inp
         "input_boolean": {},
     }
 
+    # Get both original and normalized area names
     area_name = str(features.get("area_name", "unknown_area"))
+    normalized_area_name = str(features.get("normalized_area_name", area_name.lower()))
 
     if features.get("power_monitoring"):
-        controls["input_number"][f"{area_name}_power_threshold"] = {
+        controls["input_number"][f"{normalized_area_name}_power_threshold"] = {
             "name": f"{area_name.title()} Power Alert Threshold",
             "min": 100.0,
             "max": 1000.0,
@@ -315,7 +388,7 @@ def generate_input_controls(features: Features) -> Dict[str, Dict[str, Union[Inp
         }
 
     if features.get("climate_control"):
-        controls["input_number"][f"{area_name}_temp_threshold"] = {
+        controls["input_number"][f"{normalized_area_name}_temp_threshold"] = {
             "name": f"{area_name.title()} Temperature Threshold",
             "min": 19.0,
             "max": 25.0,
@@ -325,9 +398,35 @@ def generate_input_controls(features: Features) -> Dict[str, Dict[str, Union[Inp
             "initial": 23.0,
         }
 
+    # Add lighting controls if smart lighting is enabled
+    if features.get("smart_lighting"):
+        lighting_defaults = features.get("lighting_defaults", {})
+        controls["input_number"][f"{normalized_area_name}_light_brightness"] = {
+            "name": f"{area_name.title()} Light Brightness",
+            "min": 0.0,
+            "max": 100.0,
+            "step": 5.0,
+            "unit_of_measurement": "%",
+            "icon": "mdi:brightness-6",
+            "initial": float(lighting_defaults.get("brightness", 50)),
+        }
+        controls["input_number"][f"{normalized_area_name}_light_transition"] = {
+            "name": f"{area_name.title()} Light Transition Time",
+            "min": 0.0,
+            "max": 10.0,
+            "step": 0.5,
+            "unit_of_measurement": "s",
+            "icon": "mdi:transition",
+            "initial": float(lighting_defaults.get("transition", 1)),
+        }
+        controls["input_boolean"][f"{normalized_area_name}_light_color_mode"] = {
+            "name": f"{area_name.title()} Light Color Mode",
+            "icon": "mdi:palette",
+        }
+
     # Add boolean controls using confirmed entity IDs if available
     entity_ids = features.get("entity_ids", {})
-    override_id = entity_ids.get("occupied_override", f"{area_name}_occupied_override")
+    override_id = entity_ids.get("occupied_override", f"{normalized_area_name}_occupied_override")
 
     # Add occupancy override control
     controls["input_boolean"][override_id] = {
@@ -336,13 +435,13 @@ def generate_input_controls(features: Features) -> Dict[str, Dict[str, Union[Inp
     }
 
     # Add sleep mode control
-    controls["input_boolean"][f"{area_name}_sleep_mode"] = {
+    controls["input_boolean"][f"{normalized_area_name}_sleep_mode"] = {
         "name": f"{area_name.title()} Sleep Mode",
         "icon": "mdi:power-sleep",
     }
 
     # Add automation control
-    controls["input_boolean"][f"{area_name}_automations"] = {
+    controls["input_boolean"][f"{normalized_area_name}_automations"] = {
         "name": f"{area_name.title()} Automations",
         "icon": "mdi:robot",
     }

@@ -8,12 +8,13 @@ def generate_power_config(features: Features) -> List[Dict[str, List[Dict[str, A
     components: List[Dict[str, List[Dict[str, Any]]]] = []
 
     area_name = str(features.get("area_name", ""))
+    normalized_area_name = str(features.get("normalized_area_name", area_name.lower()))
     entity_ids = features.get("entity_ids", {})
     devices = features.get("devices", [])
 
     # Map device types to their power components
     device_components: Dict[str, PowerComponent] = get_device_power_components(
-        area_name=area_name, devices=devices, entity_ids=entity_ids
+        area_name=area_name, normalized_area_name=normalized_area_name, devices=devices, entity_ids=entity_ids
     )
 
     # Only generate power sensors if we have components
@@ -29,15 +30,17 @@ def generate_power_config(features: Features) -> List[Dict[str, List[Dict[str, A
     return components
 
 
-def get_device_power_components(area_name: str, devices: List[str], entity_ids: EntityIds) -> Dict[str, PowerComponent]:
+def get_device_power_components(
+    area_name: str, normalized_area_name: str, devices: List[str], entity_ids: EntityIds
+) -> Dict[str, PowerComponent]:
     """Map devices to their power monitoring components."""
     components: Dict[str, PowerComponent] = {}
 
     for device in devices:
         if device == "computer":
-            pc_power = entity_ids.get("pc_power", f"sensor.{area_name}_pc_power")
-            monitors_power = entity_ids.get("monitors_power", f"sensor.{area_name}_monitors_power")
-            desk_power = entity_ids.get("desk_power", f"sensor.{area_name}_desk_power")
+            pc_power = entity_ids.get("pc_power", f"sensor.{normalized_area_name}_pc_power")
+            monitors_power = entity_ids.get("monitors_power", f"sensor.{normalized_area_name}_monitors_power")
+            desk_power = entity_ids.get("desk_power", f"sensor.{normalized_area_name}_desk_power")
 
             components.update(
                 {
@@ -123,7 +126,7 @@ def get_device_power_components(area_name: str, devices: List[str], entity_ids: 
 
     # Add extras/misc power for any area with powered devices
     if components:
-        extras_power = entity_ids.get("extras_power", f"sensor.{area_name}_extras_power")
+        extras_power = entity_ids.get("extras_power", f"sensor.{normalized_area_name}_extras_power")
         components["extras"] = {
             "power_entity": extras_power,
             "energy_entity": extras_power.replace("_power", "_daily_energy"),
