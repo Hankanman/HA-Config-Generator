@@ -15,9 +15,7 @@ class TemplateGenerator:
         return f"{{{{ {tmpl} }}}}"
 
     @staticmethod
-    def attribute_template(
-        entity_id: str, attribute: str, transform: Optional[str] = None
-    ) -> str:
+    def attribute_template(entity_id: str, attribute: str, transform: Optional[str] = None) -> str:
         """Generate a template to get an entity's attribute."""
         tmpl = f"state_attr('{entity_id}', '{attribute}')"
         if transform:
@@ -31,17 +29,11 @@ class TemplateGenerator:
 
         for condition in conditions:
             if condition.get("type") == "state":
-                line = (
-                    f"{{% if is_state('{condition['entity']}', "
-                    f"'{condition['state']}') %}}"
-                )
+                line = f"{{% if is_state('{condition['entity']}', " f"'{condition['state']}') %}}"
                 template_lines.append(line)
             elif condition.get("type") == "numeric_state":
                 operator = condition.get("operator", ">")
-                line = (
-                    f"{{% if states('{condition['entity']}')"
-                    f"|float(0) {operator} {condition['value']} %}}"
-                )
+                line = f"{{% if states('{condition['entity']}')" f"|float(0) {operator} {condition['value']} %}}"
                 template_lines.append(line)
             elif condition.get("type") == "template":
                 template_lines.append(f"{{% if {condition['value']} %}}")
@@ -49,9 +41,7 @@ class TemplateGenerator:
         return "\n".join(template_lines)
 
     @staticmethod
-    def value_comparison(
-        value1: str, operator: str, value2: str, default: Optional[str] = None
-    ) -> str:
+    def value_comparison(value1: str, operator: str, value2: str, default: Optional[str] = None) -> str:
         """Generate a template for comparing values."""
         if default:
             value1 = f"{value1}|default({default})"
@@ -59,9 +49,7 @@ class TemplateGenerator:
         return f"{{{{ {value1} {operator} {value2} }}}}"
 
     @staticmethod
-    def calculation_template(
-        calculation: str, round_digits: Optional[int] = None
-    ) -> str:
+    def calculation_template(calculation: str, round_digits: Optional[int] = None) -> str:
         """Generate a template for calculations."""
         if round_digits is not None:
             return f"{{{{ {calculation} | round({round_digits}) }}}}"
@@ -97,22 +85,18 @@ class AttributeGenerator:
     """Utility class for generating entity attributes."""
 
     @staticmethod
-    def generate_attributes(
-        attributes: Dict[str, Union[str, Dict[str, Any]]]
-    ) -> Dict[str, str]:
+    def generate_attributes(attributes: Dict[str, Union[str, Dict[str, Any]]]) -> Dict[str, str]:
         """Generate attribute templates from configuration."""
         generated: Dict[str, str] = {}
 
         for key, value in attributes.items():
             if isinstance(value, str):
                 generated[key] = value
-            elif isinstance(value, dict):
+            elif value:
                 if value.get("type") == "template":
                     generated[key] = value["template"]
                 elif value.get("type") == "state":
-                    generated[key] = TemplateGenerator.state_template(
-                        value["entity"], value.get("transform")
-                    )
+                    generated[key] = TemplateGenerator.state_template(value["entity"], value.get("transform"))
                 elif value.get("type") == "attribute":
                     generated[key] = TemplateGenerator.attribute_template(
                         value["entity"], value["attribute"], value.get("transform")
@@ -168,9 +152,7 @@ class DeviceClassHelper:
         return cls.DEVICE_CLASSES.get(device_class, {})
 
     @classmethod
-    def apply_device_class(
-        cls, config: Dict[str, Any], device_class: str
-    ) -> Dict[str, Any]:
+    def apply_device_class(cls, config: Dict[str, Any], device_class: str) -> Dict[str, Any]:
         """Apply device class configuration to an entity config."""
         class_config = cls.get_class_config(device_class)
         config.update(class_config)

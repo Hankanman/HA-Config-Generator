@@ -1,11 +1,12 @@
+# area_config_generator/utils/yaml_writer.py
 import os
-from typing import Any, Dict, Optional
+from typing import Optional, cast
 
 import yaml
 from yaml.dumper import Dumper
 from yaml.nodes import ScalarNode
 
-from .types import AreaName, ConfigType, ProcessedConfigValue, ProcessedDict, convert_to_processed_config_value
+from .types import AreaName, ConfigType, ProcessedDictValue, TemplateItem, TemplateList, convert_to_processed_config_value
 
 
 class CustomDumper(yaml.SafeDumper):
@@ -17,19 +18,12 @@ class CustomDumper(yaml.SafeDumper):
 
 
 def safe_represent_scalar(dumper: Dumper, tag: str, value: str, style: Optional[str] = None) -> ScalarNode:
+    """Safely represent a scalar value in YAML."""
     return dumper.represent_scalar(tag, value, style=style)  # type: ignore
 
 
 def template_presenter(dumper: CustomDumper, data: str) -> ScalarNode:
-    """Custom presenter for Jinja2 templates.
-
-    Args:
-        dumper: The YAML dumper instance
-        data: The template string to process
-
-    Returns:
-        ScalarNode: The YAML scalar node with processed template
-    """
+    """Custom presenter for Jinja2 templates."""
     if data.startswith("'") and data.endswith("'"):
         data = data[1:-1]
 
@@ -46,12 +40,7 @@ def template_presenter(dumper: CustomDumper, data: str) -> ScalarNode:
 
 
 def write_yaml_config(area_name: AreaName, config: ConfigType) -> None:
-    """Write the configuration to a YAML file with proper template handling.
-
-    Args:
-        area_name: The name of the area being configured
-        config: The configuration to write
-    """
+    """Write the configuration to a YAML file with proper template handling."""
     # Set up custom YAML handling
     CustomDumper.add_representer(str, template_presenter)
 
@@ -75,48 +64,43 @@ def write_yaml_config(area_name: AreaName, config: ConfigType) -> None:
         )
 
 
-def process_config(config: ConfigType) -> ProcessedDict:
-    """Process configuration to properly handle templates and special characters.
+def process_config(config: ConfigType) -> ProcessedDictValue:
+    """Process configuration to properly handle templates and special characters."""
+    processed: ProcessedDictValue = {}
 
-    Args:
-        config: The configuration dictionary to process
+    for area_name, area_config in config.items():
+        area_processed: ProcessedDictValue = {}
 
-    Returns:
-        The processed configuration dictionary
-    """
-    processed: ProcessedDict = {}
+        # Process template items
+        if "template" in area_config:
+            templates = cast(TemplateList, area_config["template"])
+            area_processed["template"] = convert_to_processed_config_value(
+                [_process_config_item(item) for item in templates]
+            )
 
-    for key, value in config.items():
-        processed[key] = [_process_config_item(item) for item in value]
+        # Process input_number configurations
+        if "input_number" in area_config:
+            area_processed["input_number"] = convert_to_processed_config_value(area_config["input_number"])
+
+        # Process input_boolean configurations
+        if "input_boolean" in area_config:
+            area_processed["input_boolean"] = convert_to_processed_config_value(area_config["input_boolean"])
+
+        processed[area_name] = area_processed
 
     return processed
 
 
-def _process_config_item(item: Dict[str, Any]) -> Dict[str, ProcessedConfigValue]:
-    """Process a single configuration item.
-
-    Args:
-        item: A configuration item dictionary
-
-    Returns:
-        Processed configuration item
-    """
-    processed_item: Dict[str, ProcessedConfigValue] = {}
+def _process_config_item(item: TemplateItem) -> ProcessedDictValue:
+    """Process a single configuration item."""
+    processed_item: ProcessedDictValue = {}
     for component_type, components in item.items():
-        # Explicitly convert to ProcessedConfigValue
         processed_item[component_type] = convert_to_processed_config_value(components)
     return processed_item
 
 
 def process_template(value: str) -> str:
-    """Process a template string.
-
-    Args:
-        value: The template string to process
-
-    Returns:
-        The processed template string
-    """
+    """Process a template string."""
     if "{{" in value or "{%" in value:
         # Remove unnecessary outer quotes
         if value.startswith("'") and value.endswith("'"):
@@ -127,14 +111,7 @@ def process_template(value: str) -> str:
 
 
 def validate_config(config: ConfigType) -> None:
-    """Validate the configuration structure.
-
-    Args:
-        config: The configuration to validate
-
-    Raises:
-        ValueError: If the configuration is invalid
-    """
+    """Validate the configuration structure."""
     if not config:
         raise ValueError("Configuration cannot be empty")
 
@@ -145,10 +122,18 @@ def validate_config(config: ConfigType) -> None:
         if not area_config:
             raise ValueError(f"Configuration for area {area_name} cannot be empty")
 
-        for item in area_config:
-            if not item:
-                raise ValueError(f"Configuration item in {area_name} cannot be empty")
+        if "template" in area_config:
+            templates = cast(TemplateList, area_config["template"])
+            for item in templates:
+                if not item:
+                    raise ValueError(f"Template item in {area_name} cannot be empty")
 
-            for component_type, components in item.items():
-                if not components:
-                    raise ValueError(f"Component {component_type} in {area_name} cannot be empty")
+                for component_type, components in item.items():
+                    if not components:
+                        raise ValueError(f"Component {component_type} in {area_name} cannot be empty")
+
+        if "input_number" in area_config and not area_config["input_number"]:
+            raise ValueError(f"input_number configuration in {area_name} cannot be empty")
+
+        if "input_boolean" in area_config and not area_config["input_boolean"]:
+            raise ValueError(f"input_boolean configuration in {area_name} cannot be empty")

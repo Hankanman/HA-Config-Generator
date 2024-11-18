@@ -1,10 +1,10 @@
 # area_config_generator/devices/bathroom.py
 """Configuration generator for bathroom devices."""
 
-from ..utils.types import AreaName, ConfigType
+from typing import Any, Dict, List
 
 
-def generate_bathroom_config(area_name: AreaName) -> ConfigType:
+def generate_bathroom_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
     """Generate configuration for bathroom devices."""
     return {
         "template": [

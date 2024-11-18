@@ -1,10 +1,10 @@
 # area_config_generator/devices/tv.py
 """Configuration generator for TV setups."""
 
-from utils.types import AreaName, ConfigType
+from typing import Any, Dict, List
 
 
-def generate_tv_config(area_name: AreaName) -> ConfigType:
+def generate_tv_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
     """Generate configuration for a TV setup."""
     return {
         "template": [

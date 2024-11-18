@@ -1,10 +1,12 @@
 # area_config_generator/utils/types.py
 from __future__ import annotations  # Added for forward references
 
-from typing import Any, Callable, Dict, Hashable, List, Literal, TypeAlias, TypedDict, TypeVar, Union, cast
+from typing import Any, Callable, Dict, Hashable, List, Literal, TypeAlias, TypeVar, Union, cast
+
+from typing_extensions import NotRequired, TypedDict
 
 # Basic types
-ConfigType = Dict[str, List[Dict[str, Any]]]
+ConfigType = Dict[str, Dict[str, Any]]
 AreaName = str
 TemplateConfig = Dict[str, Union[str, int, List[str]]]
 FeatureValue = Union[bool, List[str], str]
@@ -26,36 +28,18 @@ class PreciseDict(Dict[KT, VT]):
     pass
 
 
-# Processed configuration value type
-ProcessedConfigValue: TypeAlias = Union[
-    str, int, float, bool, Dict[str, "ProcessedConfigValue"], List["ProcessedConfigValue"]
-]
+# Processed configuration value types
+ProcessedScalarValue = Union[str, int, float, bool]
+ProcessedDictValue = Dict[str, "ProcessedConfigValue"]
+ProcessedListValue = List["ProcessedConfigValue"]
+ProcessedConfigValue = Union[ProcessedScalarValue, ProcessedDictValue, ProcessedListValue]
+
+# Template specific types
+TemplateItem = Dict[str, List[Dict[str, Any]]]
+TemplateList = List[TemplateItem]
 
 # Recursive dictionary type for processed configuration
 ProcessedDict: TypeAlias = Dict[str, ProcessedConfigValue]
-
-
-def convert_to_processed_config_value(value: object) -> ProcessedConfigValue:
-    """Convert a value to ProcessedConfigValue.
-
-    Args:
-        value: The value to convert
-
-    Returns:
-        Processed configuration value
-    """
-    if isinstance(value, (str, int, float, bool)):
-        return value
-
-    if isinstance(value, list):
-        value_list = cast(List[Any], value)
-        return [convert_to_processed_config_value(item) for item in value_list]
-
-    if isinstance(value, dict):
-        value_dict = cast(Dict[Any, Any], value)
-        return {str(key): convert_to_processed_config_value(val) for key, val in value_dict.items()}
-
-    return str(value)
 
 
 class EntityConfig(TypedDict):
@@ -109,6 +93,19 @@ class Features(TypedDict, total=False):
 
 
 # Sensor base configurations
+class SensorConfigBase(TypedDict, total=False):
+    """Base configuration for sensors."""
+
+    name: str
+    unique_id: str
+    state: str
+    device_class: str
+    state_class: str
+    unit_of_measurement: str
+    icon: str
+    attributes: Dict[str, str]
+
+
 class SensorBase(TypedDict, total=False):
     """Base sensor configuration."""
 
@@ -121,16 +118,16 @@ class SensorBase(TypedDict, total=False):
     icon: str
 
 
-class BinarySensorConfig(SensorBase):
-    """Binary sensor configuration."""
+class BinarySensorConfig(SensorConfigBase):
+    """Binary sensor specific configuration."""
 
-    attributes: Dict[str, str]
+    pass
 
 
-class SensorConfig(SensorBase):
-    """Regular sensor configuration."""
+class SensorConfig(SensorConfigBase):
+    """Regular sensor specific configuration."""
 
-    attributes: Dict[str, str]
+    pass
 
 
 # Fan configuration
@@ -150,18 +147,16 @@ class StateTemplateConfig(TypedDict):
 
 # Template configuration item
 class TemplateConfigItem(TypedDict, total=False):
-    """Template configuration item."""
+    """Template configuration item with optional fields."""
 
-    binary_sensor: List[BinarySensorConfig]
-    sensor: List[SensorConfig]
-    fan: List[FanConfig]
-    state_template: List[StateTemplateConfig]
+    binary_sensor: NotRequired[List[BinarySensorConfig]]
+    sensor: NotRequired[List[SensorConfig]]
+    fan: NotRequired[List[FanConfig]]
+    state_template: NotRequired[List[Dict[str, Any]]]
 
 
 # Input configurations
 class InputNumberConfig(TypedDict):
-    """Input number configuration."""
-
     name: str
     min: float
     max: float
@@ -172,17 +167,13 @@ class InputNumberConfig(TypedDict):
 
 
 class InputBooleanConfig(TypedDict):
-    """Input boolean configuration."""
-
     name: str
     icon: str
 
 
 # Area configuration
 class AreaConfig(TypedDict):
-    """Area configuration."""
-
-    template: List[TemplateConfigItem]
+    template: TemplateList
     input_number: Dict[str, InputNumberConfig]
     input_boolean: Dict[str, InputBooleanConfig]
 
@@ -209,25 +200,78 @@ class OccupancyTrigger(TypedDict, total=False):
     condition: str
 
 
+def convert_template_config_to_item(config: TemplateConfigItem) -> TemplateItem:
+    """Convert TemplateConfigItem to TemplateItem safely."""
+    result: TemplateItem = {}
+
+    if "binary_sensor" in config:
+        result["binary_sensor"] = [cast(Dict[str, Any], sensor) for sensor in config["binary_sensor"]]
+
+    if "sensor" in config:
+        result["sensor"] = [cast(Dict[str, Any], sensor) for sensor in config["sensor"]]
+
+    if "fan" in config:
+        result["fan"] = [cast(Dict[str, Any], fan) for fan in config["fan"]]
+
+    if "state_template" in config:
+        result["state_template"] = [template for template in config["state_template"]]
+
+    return result
+
+
+def convert_to_processed_config_value(value: Any) -> ProcessedConfigValue:
+    """Convert a value to ProcessedConfigValue.
+
+    Args:
+        value: The value to convert
+
+    Returns:
+        Processed configuration value
+    """
+    if isinstance(value, (str, int, float, bool)):
+        return value
+
+    if isinstance(value, list):
+        value_list = cast(List[Any], value)
+        return [convert_to_processed_config_value(item) for item in value_list]
+
+    if isinstance(value, dict):
+        value_dict = cast(Dict[Any, Any], value)
+        return {str(key): convert_to_processed_config_value(val) for key, val in value_dict.items()}
+
+    return str(value)
+
+
 def convert_area_config_to_config(area_config: AreaConfigType) -> ConfigType:
     """Convert AreaConfigType to ConfigType with type safety."""
     config: ConfigType = {}
 
     for area_name, area_details in area_config.items():
-        template_items: List[Dict[str, Any]] = []
+        config[area_name] = {}
 
-        for template_item in area_details.get("template", []):
-            converted_item: Dict[str, List[Dict[str, Any]]] = {}
-            valid_keys = {"binary_sensor", "sensor", "fan", "state_template"}
+        # Process template items
+        if "template" in area_details:
+            template_items: TemplateList = []
+            for template_item in area_details["template"]:
+                converted_item: TemplateItem = {}
+                valid_keys = {"binary_sensor", "sensor", "fan", "state_template"}
 
-            for key in valid_keys:
-                if key in template_item and isinstance(template_item[key], list):
-                    converted_item[key] = template_item[key]
+                for key in valid_keys:
+                    if key in template_item and template_item[key]:
+                        converted_item[key] = template_item[key]
 
-            if converted_item:
-                template_items.append(converted_item)
+                if converted_item:
+                    template_items.append(converted_item)
 
-        if template_items:
-            config[area_name] = template_items
+            if template_items:
+                config[area_name]["template"] = template_items
+
+        # Process input_number configurations
+        if "input_number" in area_details:
+            config[area_name]["input_number"] = area_details["input_number"]
+
+        # Process input_boolean configurations
+        if "input_boolean" in area_details:
+            config[area_name]["input_boolean"] = area_details["input_boolean"]
 
     return config

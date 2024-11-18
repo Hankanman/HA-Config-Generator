@@ -1,10 +1,10 @@
 # area_config_generator/devices/kitchen.py
 """Configuration generator for kitchen devices."""
 
-from ..utils.types import AreaName, ConfigType
+from typing import Any, Dict, List
 
 
-def generate_kitchen_config(area_name: AreaName) -> ConfigType:
+def generate_kitchen_config(area_name: str) -> Dict[str, List[Dict[str, Any]]]:
     """Generate configuration for kitchen devices."""
     return {
         "template": [

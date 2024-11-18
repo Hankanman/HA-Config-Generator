@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Dict, List, TypeGuard, Union
+from typing import Any, Dict, List, TypeGuard, Union, cast
 
 import click
 
@@ -15,6 +15,7 @@ from ..utils.types import (
     InputNumberConfig,
     TemplateConfigItem,
     convert_area_config_to_config,
+    convert_template_config_to_item,
 )
 from ..utils.yaml_writer import write_yaml_config
 
@@ -254,17 +255,20 @@ def generate_area_config(area_name: str, features: Features) -> AreaConfigType:
     # Generate occupancy config if needed
     if features.get("motion_sensor") or features.get("door_sensor"):
         occupancy_config = occupancy.generate_occupancy_config(features)
-        config[area_name]["template"].extend(extract_template(occupancy_config))
+        for item in extract_template(occupancy_config):
+            config[area_name]["template"].append(convert_template_config_to_item(item))
 
     # Generate power monitoring config if needed
     if features.get("power_monitoring"):
         power_config = power.generate_power_config(features)
-        config[area_name]["template"].extend(extract_template(power_config))
+        for item in extract_template(power_config):
+            config[area_name]["template"].append(convert_template_config_to_item(item))
 
     # Generate climate control config if needed
     if features.get("climate_control"):
         climate_config = climate.generate_climate_config(features)
-        config[area_name]["template"].extend(extract_template(climate_config))
+        for item in extract_template(climate_config):
+            config[area_name]["template"].append(convert_template_config_to_item(item))
 
     # Generate input controls
     input_controls = generate_input_controls(features)
@@ -278,11 +282,11 @@ def generate_area_config(area_name: str, features: Features) -> AreaConfigType:
             k in value and (isinstance(value[k], (int, float)) or isinstance(value[k], str))
             for k in ["name", "min", "max", "step", "unit_of_measurement", "icon", "initial"]
         ):
-            input_number_configs[key] = value  # type: ignore
+            input_number_configs[key] = cast(InputNumberConfig, value)
 
     for key, value in input_controls.get("input_boolean", {}).items():
         if all(k in value and isinstance(value[k], str) for k in ["name", "icon"]):
-            input_boolean_configs[key] = value  # type: ignore
+            input_boolean_configs[key] = cast(InputBooleanConfig, value)
 
     config[area_name]["input_number"] = input_number_configs
     config[area_name]["input_boolean"] = input_boolean_configs
